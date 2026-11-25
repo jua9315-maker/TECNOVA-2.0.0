@@ -5,13 +5,16 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
   Package,
   PanelLeftClose,
   Receipt,
+  Search,
   Settings,
   ShieldCheck,
   ShoppingCart,
   Sliders,
+  Sun,
   Users,
   Wrench,
   X,
@@ -130,6 +133,17 @@ function WorkspaceApp() {
     useState<SettingsSection>('app');
   const [menuDrawerOpen, setMenuDrawerOpen] = useState(false);
   const [dashboardSidebarHidden, setDashboardSidebarHidden] = useState(false);
+  const [menuSearchQuery, setMenuSearchQuery] = useState('');
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    try {
+      return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+  const sidebarSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const drawerSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerContext, setScannerContext] =
     useState<ScannerContextMode>('general');
@@ -225,11 +239,32 @@ function WorkspaceApp() {
   }, []);
 
   useEffect(() => {
+    const isDark = themeMode === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    document.body.classList.toggle('dark-theme', isDark);
+    try {
+      localStorage.setItem('theme', themeMode);
+    } catch {
+      // Ignore unavailable localStorage
+    }
+  }, [themeMode]);
+
+  useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty('--app-bg', appAppearance.canvasBgColor || '#f8fafc');
+    const isDark = themeMode === 'dark';
+    root.style.setProperty(
+      '--app-bg',
+      isDark
+        ? 'linear-gradient(135deg, #020617 0%, #0f172a 44%, #111827 74%, #1e1b4b 100%)'
+        : appAppearance.canvasBgColor ||
+            DEFAULT_APP_APPEARANCE_SETTINGS.canvasBgColor
+    );
     root.style.setProperty(
       '--app-surface-opacity',
-      String((appAppearance.surfaceOpacityPercent ?? 78) / 100)
+      String(
+        (appAppearance.surfaceOpacityPercent ??
+          DEFAULT_APP_APPEARANCE_SETTINGS.surfaceOpacityPercent) / 100
+      )
     );
     root.style.setProperty(
       '--app-font-sans',
@@ -245,7 +280,7 @@ function WorkspaceApp() {
       appAppearance.currencyCode,
       appAppearance.exchangeRateNio ?? 36.62
     );
-  }, [appAppearance]);
+  }, [appAppearance, themeMode]);
 
   useEffect(() => {
     if (appAppearance.currencyCode !== 'NIO') return;
@@ -581,8 +616,12 @@ function WorkspaceApp() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 rounded-xl p-8 max-w-sm w-full space-y-4">
+      <div className="min-h-screen relative flex items-center justify-center p-6">
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-0 pointer-events-none glass-atmosphere-orbs"
+        />
+        <div className="relative z-10 bg-white border border-white/70 rounded-2xl p-8 max-w-sm w-full space-y-4">
           <div className="h-5 w-32 bg-slate-200 rounded animate-pulse" />
           <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
           <div className="h-4 w-2/3 bg-slate-100 rounded animate-pulse" />
@@ -597,8 +636,12 @@ function WorkspaceApp() {
 
   if (profile && !profile.active) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 rounded-xl p-8 max-w-md w-full space-y-4">
+      <div className="min-h-screen relative flex items-center justify-center p-6">
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-0 pointer-events-none glass-atmosphere-orbs"
+        />
+        <div className="relative z-10 bg-white border border-white/70 rounded-2xl p-8 max-w-md w-full space-y-4">
           <h1 className="text-lg font-semibold text-slate-900">Cuenta suspendida</h1>
           <p className="text-sm text-slate-600">
             Tu acceso operativo ha sido desactivado temporalmente por el administrador de la tienda.
@@ -647,6 +690,25 @@ function WorkspaceApp() {
   const navItems = allNavItems.filter((item) => allowedTabs.includes(item.id));
   allowedTabsLatestRef.current = allowedTabs;
 
+  const normalizedMenuQuery = menuSearchQuery
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const filteredNavItems = normalizedMenuQuery
+    ? navItems.filter((item) =>
+        item.label
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .includes(normalizedMenuQuery)
+      )
+    : navItems;
+
+  const handleSearchContainerClick = () => {
+    sidebarSearchInputRef.current?.focus();
+  };
+
   const openScannerForContext = (ctx: ScannerContextMode) => {
     setScannerContext(ctx);
     setScannerStartMode('camera');
@@ -671,50 +733,68 @@ function WorkspaceApp() {
     appAppearance.exchangeRateNio ?? 36.62
   );
 
-  const isSidebarDark = isHexColorDark(appAppearance.sidebarBgColor);
-  const isHeaderDark = isHexColorDark(appAppearance.headerBgColor);
+  const isGlobalDark = themeMode === 'dark';
+  const effectiveCanvasBg = isGlobalDark
+    ? 'linear-gradient(135deg, #020617 0%, #0f172a 44%, #111827 74%, #1e1b4b 100%)'
+    : appAppearance.canvasBgColor ||
+      DEFAULT_APP_APPEARANCE_SETTINGS.canvasBgColor;
+  const effectiveSidebarBg = isGlobalDark
+    ? '#0f172a'
+    : appAppearance.sidebarBgColor || '#ffffff';
+  const effectiveHeaderBg = isGlobalDark
+    ? '#0f172a'
+    : appAppearance.headerBgColor || '#ffffff';
+  const isSidebarDark = isGlobalDark || isHexColorDark(effectiveSidebarBg);
+  const isHeaderDark = isGlobalDark || isHexColorDark(effectiveHeaderBg);
   const isPrimaryDark = isHexColorDark(appAppearance.primaryColor);
   const showDesktopSidebar = activeTab === 'dashboard' && !dashboardSidebarHidden;
+  const surfaceOpacity =
+    appAppearance.surfaceOpacityPercent ??
+    DEFAULT_APP_APPEARANCE_SETTINGS.surfaceOpacityPercent;
 
   return (
     <div
       id="app-shell"
-      className="min-h-screen flex flex-col lg:flex-row"
+      className="min-h-screen relative flex flex-col lg:flex-row"
       style={{
-        background: applyBackgroundOpacity(
-          appAppearance.canvasBgColor || '#f8fafc',
-          appAppearance.surfaceOpacityPercent ?? 78
-        ),
+        background: effectiveCanvasBg,
+        backgroundAttachment: 'fixed',
       }}
     >
-      {/* Desktop Sidebar (256px — visible on Panel Principal, auto-hidden on Punto de Venta y demás ventanas) */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 z-0 pointer-events-none glass-atmosphere-orbs no-print"
+      />
+      {/* Desktop Floating Compact Sidebar (hides completely on toggle; wraps tightly to items) */}
       {showDesktopSidebar && (
         <aside
-          className={`hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 border-r no-print ${
-            isSidebarDark ? 'border-slate-700/60' : 'border-slate-200'
+          className={`hidden lg:flex lg:flex-col lg:fixed lg:top-4 lg:left-4 lg:w-64 h-fit max-h-[calc(100vh-2rem)] z-20 rounded-2xl border backdrop-blur-2xl backdrop-saturate-150 overflow-hidden no-print ${
+            isSidebarDark
+              ? 'border-white/15 shadow-[0_18px_42px_-14px_rgba(2,6,23,0.55)]'
+              : 'border-white/75 shadow-[0_18px_42px_-14px_rgba(15,23,42,0.14)]'
           }`}
           style={{
             background: applyBackgroundOpacity(
-              appAppearance.sidebarBgColor || '#ffffff',
-              appAppearance.surfaceOpacityPercent ?? 78
+              effectiveSidebarBg,
+              isGlobalDark ? Math.max(72, surfaceOpacity) : surfaceOpacity
             ),
           }}
         >
         <div
-          className={`h-16 px-6 flex items-center justify-between gap-2 border-b ${
-            isSidebarDark ? 'border-slate-700/60' : 'border-slate-200'
+          className={`h-14 px-4 flex items-center justify-between gap-2 border-b shrink-0 ${
+            isSidebarDark ? 'border-white/10' : 'border-slate-200/70'
           }`}
         >
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             {appAppearance.showLogoInSidebar && appAppearance.logoDataUrl && (
               <img
                 src={appAppearance.logoDataUrl}
                 alt={appAppearance.appName}
-                className="h-7 w-auto object-contain shrink-0"
+                className="h-6 w-auto object-contain shrink-0"
               />
             )}
             <span
-              className={`text-base font-bold tracking-tight truncate ${
+              className={`text-sm font-bold tracking-tight truncate ${
                 isSidebarDark ? 'text-white' : 'text-slate-900'
               }`}
             >
@@ -734,116 +814,167 @@ function WorkspaceApp() {
             <button
               type="button"
               onClick={() => setDashboardSidebarHidden(true)}
-              className={`p-1 rounded-md transition-colors cursor-pointer ${
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                 isSidebarDark
-                  ? 'text-slate-400 hover:text-white hover:bg-white/10'
-                  : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100'
+                  ? 'text-slate-300 hover:text-white hover:bg-white/10'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/70'
               }`}
-              title="Esconder menú lateral"
-              aria-label="Esconder menú lateral"
+              title="Ocultar menú lateral"
+              aria-label="Ocultar menú lateral"
             >
               <PanelLeftClose className="w-4 h-4" />
             </button>
           </div>
         </div>
 
+        {/* Compact menu search bar */}
+        <div className="px-2.5 pt-2.5 pb-1 shrink-0">
+          <div
+            onClick={handleSearchContainerClick}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors cursor-text ${
+              isSidebarDark
+                ? 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10'
+                : 'bg-white/55 border-white/75 text-slate-700 hover:bg-white/75'
+            }`}
+          >
+            <Search className="w-3.5 h-3.5 shrink-0 opacity-70" />
+            <input
+              ref={sidebarSearchInputRef}
+              type="text"
+              value={menuSearchQuery}
+              onChange={(e) => setMenuSearchQuery(e.target.value)}
+              placeholder="Buscar módulo..."
+              className={`w-full bg-transparent text-xs focus:outline-none ${
+                isSidebarDark
+                  ? 'text-white placeholder:text-slate-400'
+                  : 'text-slate-900 placeholder:text-slate-500'
+              }`}
+              aria-label="Buscar en el menú"
+            />
+            {menuSearchQuery && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuSearchQuery('');
+                }}
+                className="p-0.5 rounded hover:bg-black/10 shrink-0 cursor-pointer"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="w-3.5 h-3.5 opacity-70" />
+              </button>
+            )}
+          </div>
+        </div>
+
         <nav
           data-visual-scope="shell"
-          className="flex-1 px-3 py-5 space-y-1 overflow-y-auto flex flex-col"
+          className="px-2.5 py-2 space-y-0.5 overflow-y-auto flex flex-col"
         >
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                data-nav-tab={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setMenuDrawerOpen(false);
-                }}
-                style={
-                  active
-                    ? {
-                        background: applyBackgroundOpacity(
-                          appAppearance.primaryColor || '#0f172a',
-                          appAppearance.surfaceOpacityPercent ?? 78
-                        ),
-                        color: isPrimaryDark ? '#ffffff' : '#0f172a',
-                      }
-                    : undefined
-                }
-                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
-                  active
-                    ? ''
-                    : isSidebarDark
-                      ? 'text-slate-300 hover:bg-white/10 hover:text-white'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <div
-          className={`p-4 border-t space-y-3 ${
-            isSidebarDark ? 'border-slate-700/60' : 'border-slate-200'
-          }`}
-        >
-          {(actualRole === 'admin' ||
-            (actualRole === 'developer' && developerSystem.showDevRoleSwitcher)) && (
-            <div className="space-y-1.5">
+          {filteredNavItems.length === 0 ? (
+            <div className="px-3 py-4 text-center space-y-1.5">
               <p
-                className={`text-[11px] font-medium ${
+                className={`text-xs ${
                   isSidebarDark ? 'text-slate-400' : 'text-slate-500'
                 }`}
               >
-                Vista de Panel por Rol
+                Sin módulos para "{menuSearchQuery}"
               </p>
-              <div
-                className={`grid grid-cols-2 gap-1 p-1 rounded-lg ${
-                  isSidebarDark ? 'bg-white/10' : 'bg-slate-100'
+              <button
+                type="button"
+                onClick={() => setMenuSearchQuery('')}
+                className="text-[11px] font-medium text-blue-600 hover:underline cursor-pointer"
+              >
+                Mostrar todos
+              </button>
+            </div>
+          ) : (
+            filteredNavItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-nav-tab={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setMenuDrawerOpen(false);
+                  }}
+                  style={
+                    active
+                      ? {
+                          background: applyBackgroundOpacity(
+                            appAppearance.primaryColor || '#0f172a',
+                            Math.max(75, surfaceOpacity)
+                          ),
+                          color: isPrimaryDark ? '#ffffff' : '#0f172a',
+                        }
+                      : undefined
+                  }
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl transition-colors whitespace-nowrap cursor-pointer ${
+                    active
+                      ? 'shadow-sm'
+                      : isSidebarDark
+                        ? 'text-slate-300 hover:bg-white/10 hover:text-white'
+                        : 'text-slate-700 hover:bg-white/60 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })
+          )}
+        </nav>
+
+        <div
+          className={`px-3 py-2.5 border-t space-y-2 shrink-0 ${
+            isSidebarDark ? 'border-white/10' : 'border-slate-200/70'
+          }`}
+        >
+          {(actualRole === 'admin' ||
+            (actualRole === 'developer' &&
+              developerSystem.showDevRoleSwitcher)) && (
+            <div
+              className={`grid grid-cols-2 gap-1 p-1 rounded-lg ${
+                isSidebarDark ? 'bg-white/10' : 'bg-slate-100'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveViewRole(actualRole);
+                }}
+                className={`py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
+                  activeViewRole === actualRole
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : isSidebarDark
+                      ? 'text-slate-300 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveViewRole(actualRole);
-                  }}
-                  className={`py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    activeViewRole === actualRole
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : isSidebarDark
-                        ? 'text-slate-300 hover:text-white'
-                        : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {actualRole === 'developer' ? 'Desarrollador' : 'Admin'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveViewRole('staff');
-                  }}
-                  className={`py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    activeViewRole === 'staff'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : isSidebarDark
-                        ? 'text-slate-300 hover:text-white'
-                        : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Usuario
-                </button>
-              </div>
+                {actualRole === 'developer' ? 'Desarrollador' : 'Admin'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveViewRole('staff');
+                }}
+                className={`py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
+                  activeViewRole === 'staff'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : isSidebarDark
+                      ? 'text-slate-300 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Usuario
+              </button>
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2 pt-1">
+          <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p
                 className={`text-xs font-semibold truncate ${
@@ -853,7 +984,7 @@ function WorkspaceApp() {
                 {actorName}
               </p>
               <p
-                className={`text-[11px] truncate ${
+                className={`text-[10px] truncate ${
                   isSidebarDark ? 'text-slate-400' : 'text-slate-500'
                 }`}
               >
@@ -865,44 +996,74 @@ function WorkspaceApp() {
                     : 'Usuario Operativo'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className={`p-2 rounded-lg transition-colors shrink-0 ${
-                isSidebarDark
-                  ? 'text-slate-400 hover:text-red-400 hover:bg-white/10'
-                  : 'text-slate-500 hover:text-red-600 hover:bg-slate-100'
-              }`}
-              title="Cerrar sesión"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() =>
+                  setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'))
+                }
+                className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                  isSidebarDark
+                    ? 'bg-white/5 border-white/15 text-amber-300 hover:bg-white/10'
+                    : 'bg-white/60 border-white/80 text-indigo-600 hover:bg-white/85'
+                }`}
+                title={
+                  themeMode === 'dark'
+                    ? 'Cambiar a modo claro'
+                    : 'Cambiar a modo oscuro'
+                }
+                aria-label={
+                  themeMode === 'dark'
+                    ? 'Cambiar a modo claro'
+                    : 'Cambiar a modo oscuro'
+                }
+              >
+                {themeMode === 'dark' ? (
+                  <Sun className="w-3.5 h-3.5" />
+                ) : (
+                  <Moon className="w-3.5 h-3.5" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  isSidebarDark
+                    ? 'text-slate-400 hover:text-red-400 hover:bg-white/10'
+                    : 'text-slate-500 hover:text-red-600 hover:bg-slate-100'
+                }`}
+                title="Cerrar sesión"
+                aria-label="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>
       )}
 
-      {/* Slide-over Navigation Drawer (mobile + desktop when sidebar is hidden) */}
+      {/* Compact Floating Slide-over Navigation Drawer (mobile + desktop when sidebar is hidden) */}
       {menuDrawerOpen && (
         <div
-          className="fixed inset-0 z-50 flex bg-slate-950/50 backdrop-blur-[1px] no-print"
+          className="fixed inset-0 z-50 flex items-start p-3 sm:p-4 bg-slate-950/45 backdrop-blur-xs no-print"
           onClick={() => setMenuDrawerOpen(false)}
         >
           <div
-            className={`w-72 h-full border-r flex flex-col shadow-2xl ${
-              isSidebarDark ? 'border-slate-700/60' : 'border-slate-200'
+            className={`w-72 h-fit max-h-[calc(100vh-2rem)] rounded-2xl border flex flex-col backdrop-blur-2xl backdrop-saturate-150 shadow-2xl overflow-hidden ${
+              isSidebarDark ? 'border-white/15' : 'border-white/75'
             }`}
             style={{
               background: applyBackgroundOpacity(
-                appAppearance.sidebarBgColor || '#ffffff',
-                appAppearance.surfaceOpacityPercent ?? 78
+                effectiveSidebarBg,
+                isGlobalDark ? Math.max(76, surfaceOpacity) : surfaceOpacity
               ),
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className={`h-16 px-5 flex items-center justify-between border-b ${
-                isSidebarDark ? 'border-slate-700/60' : 'border-slate-200'
+              className={`h-14 px-4 flex items-center justify-between border-b shrink-0 ${
+                isSidebarDark ? 'border-white/10' : 'border-slate-200/70'
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
@@ -914,7 +1075,7 @@ function WorkspaceApp() {
                   />
                 )}
                 <span
-                  className={`text-base font-bold truncate ${
+                  className={`text-sm font-bold truncate ${
                     isSidebarDark ? 'text-white' : 'text-slate-900'
                   }`}
                 >
@@ -931,84 +1092,145 @@ function WorkspaceApp() {
                 }`}
                 aria-label="Cerrar menú"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Search bar inside drawer */}
+            <div className="px-2.5 pt-2.5 pb-1 shrink-0">
+              <div
+                onClick={() => drawerSearchInputRef.current?.focus()}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors ${
+                  isSidebarDark
+                    ? 'bg-white/5 border-white/15 text-slate-200'
+                    : 'bg-white/55 border-white/75 text-slate-700'
+                }`}
+              >
+                <Search className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                <input
+                  ref={drawerSearchInputRef}
+                  type="text"
+                  value={menuSearchQuery}
+                  onChange={(e) => setMenuSearchQuery(e.target.value)}
+                  placeholder="Buscar módulo..."
+                  className={`w-full bg-transparent text-xs focus:outline-none ${
+                    isSidebarDark
+                      ? 'text-white placeholder:text-slate-400'
+                      : 'text-slate-900 placeholder:text-slate-500'
+                  }`}
+                  aria-label="Buscar en el menú"
+                />
+                {menuSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setMenuSearchQuery('')}
+                    className="p-0.5 rounded hover:bg-black/10 shrink-0 cursor-pointer"
+                    aria-label="Limpiar búsqueda"
+                  >
+                    <X className="w-3.5 h-3.5 opacity-70" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <nav
               data-visual-scope={!showDesktopSidebar ? 'shell' : undefined}
-              className="flex-1 p-3 space-y-1 overflow-y-auto flex flex-col"
+              className="p-2.5 space-y-0.5 overflow-y-auto flex flex-col"
             >
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    data-nav-tab={!showDesktopSidebar ? item.id : undefined}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setMenuDrawerOpen(false);
-                    }}
-                    style={
-                      active
-                        ? {
-                            background: applyBackgroundOpacity(
-                              appAppearance.primaryColor || '#0f172a',
-                              appAppearance.surfaceOpacityPercent ?? 78
-                            ),
-                            color: isPrimaryDark ? '#ffffff' : '#0f172a',
-                          }
-                        : undefined
-                    }
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                      active
-                        ? ''
-                        : isSidebarDark
-                          ? 'text-slate-300 hover:bg-white/10 hover:text-white'
-                          : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+              {filteredNavItems.length === 0 ? (
+                <div className="px-3 py-4 text-center space-y-1.5">
+                  <p
+                    className={`text-xs ${
+                      isSidebarDark ? 'text-slate-400' : 'text-slate-500'
                     }`}
                   >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{item.label}</span>
+                    Sin módulos para "{menuSearchQuery}"
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setMenuSearchQuery('')}
+                    className="text-[11px] font-medium text-blue-600 hover:underline cursor-pointer"
+                  >
+                    Mostrar todos
                   </button>
-                );
-              })}
+                </div>
+              ) : (
+                filteredNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      data-nav-tab={!showDesktopSidebar ? item.id : undefined}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setMenuDrawerOpen(false);
+                      }}
+                      style={
+                        active
+                          ? {
+                              background: applyBackgroundOpacity(
+                                appAppearance.primaryColor || '#0f172a',
+                                Math.max(75, surfaceOpacity)
+                              ),
+                              color: isPrimaryDark ? '#ffffff' : '#0f172a',
+                            }
+                          : undefined
+                      }
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl transition-colors cursor-pointer ${
+                        active
+                          ? 'shadow-sm'
+                          : isSidebarDark
+                            ? 'text-slate-300 hover:bg-white/10 hover:text-white'
+                            : 'text-slate-700 hover:bg-white/60 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })
+              )}
             </nav>
             <div
-              className={`p-4 border-t space-y-3 ${
-                isSidebarDark ? 'border-slate-700/60' : 'border-slate-200'
+              className={`px-3 py-2.5 border-t space-y-2 shrink-0 ${
+                isSidebarDark ? 'border-white/10' : 'border-slate-200/70'
               }`}
             >
               {(actualRole === 'admin' ||
                 (actualRole === 'developer' && developerSystem.showDevRoleSwitcher)) && (
-                <div className="space-y-1.5">
-                  <p
-                    className={`text-[11px] font-medium ${
-                      isSidebarDark ? 'text-slate-400' : 'text-slate-500'
+                <div
+                  className={`grid grid-cols-2 gap-1 p-1 rounded-lg ${
+                    isSidebarDark ? 'bg-white/10' : 'bg-slate-100'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveViewRole(actualRole)}
+                    className={`py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
+                      activeViewRole === actualRole
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : isSidebarDark
+                          ? 'text-slate-300 hover:text-white'
+                          : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Vista de Panel por Rol
-                  </p>
-                  <div
-                    className={`grid grid-cols-1 gap-1 p-1 rounded-lg ${
-                      isSidebarDark ? 'bg-white/10' : 'bg-slate-100'
+                    {actualRole === 'developer' ? 'Desarrollador' : 'Admin'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveViewRole('staff')}
+                    className={`py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
+                      activeViewRole === 'staff'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : isSidebarDark
+                          ? 'text-slate-300 hover:text-white'
+                          : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setActiveViewRole(actualRole)}
-                      className={`py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        activeViewRole === actualRole
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : isSidebarDark
-                            ? 'text-slate-300 hover:text-white'
-                            : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      {actualRole === 'developer' ? 'Desarrollador' : 'Admin'}
-                    </button>
-                  </div>
+                    Usuario
+                  </button>
                 </div>
               )}
               <div className="flex items-center justify-between gap-2">
@@ -1021,7 +1243,7 @@ function WorkspaceApp() {
                     {actorName}
                   </p>
                   <p
-                    className={`text-[11px] truncate ${
+                    className={`text-[10px] truncate ${
                       isSidebarDark ? 'text-slate-400' : 'text-slate-500'
                     }`}
                   >
@@ -1033,13 +1255,42 @@ function WorkspaceApp() {
                         : 'Usuario Operativo'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void signOut()}
-                  className="text-xs text-red-600 font-medium px-2 py-1 rounded-md hover:bg-red-50 cursor-pointer"
-                >
-                  Salir
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'))
+                    }
+                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      isSidebarDark
+                        ? 'bg-white/5 border-white/15 text-amber-300 hover:bg-white/10'
+                        : 'bg-white/60 border-white/80 text-indigo-600 hover:bg-white/85'
+                    }`}
+                    title={
+                      themeMode === 'dark'
+                        ? 'Cambiar a modo claro'
+                        : 'Cambiar a modo oscuro'
+                    }
+                    aria-label={
+                      themeMode === 'dark'
+                        ? 'Cambiar a modo claro'
+                        : 'Cambiar a modo oscuro'
+                    }
+                  >
+                    {themeMode === 'dark' ? (
+                      <Sun className="w-3.5 h-3.5" />
+                    ) : (
+                      <Moon className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void signOut()}
+                    className="text-xs text-red-600 font-medium px-2 py-1 rounded-md hover:bg-red-50 cursor-pointer"
+                  >
+                    Salir
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1048,19 +1299,21 @@ function WorkspaceApp() {
 
       {/* Main Content Area */}
       <div
-        className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-200 ${
-          showDesktopSidebar ? 'lg:pl-64' : ''
+        className={`relative z-10 flex-1 flex flex-col min-w-0 transition-[padding] duration-200 ${
+          showDesktopSidebar ? 'lg:pl-[17rem]' : ''
         }`}
       >
         {/* Top Header */}
         <header
-          className={`h-16 border-b px-4 sm:px-8 flex items-center justify-between gap-4 sticky top-0 z-30 no-print ${
-            isHeaderDark ? 'border-slate-700/60' : 'border-slate-200'
+          className={`h-16 border-b px-4 sm:px-8 flex items-center justify-between gap-4 sticky top-0 z-30 backdrop-blur-2xl backdrop-saturate-150 no-print ${
+            isHeaderDark
+              ? 'border-white/15 shadow-[0_8px_28px_-12px_rgba(2,6,23,0.4)]'
+              : 'border-white/70 shadow-[0_8px_28px_-14px_rgba(15,23,42,0.10)]'
           }`}
           style={{
             background: applyBackgroundOpacity(
-              appAppearance.headerBgColor || '#ffffff',
-              appAppearance.surfaceOpacityPercent ?? 78
+              effectiveHeaderBg,
+              isGlobalDark ? Math.max(72, surfaceOpacity) : surfaceOpacity
             ),
           }}
         >
@@ -1068,7 +1321,12 @@ function WorkspaceApp() {
             <button
               type="button"
               onClick={() => {
-                if (activeTab === 'dashboard' && dashboardSidebarHidden) {
+                if (
+                  typeof window !== 'undefined' &&
+                  window.innerWidth >= 1024 &&
+                  activeTab === 'dashboard' &&
+                  dashboardSidebarHidden
+                ) {
                   setDashboardSidebarHidden(false);
                 } else {
                   setMenuDrawerOpen(true);

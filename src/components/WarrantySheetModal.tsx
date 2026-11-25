@@ -86,7 +86,7 @@ export function WarrantySheetDocument({
 
   return (
     <article
-      className={`w-full max-w-[740px] mx-auto bg-white text-slate-900 border border-slate-200 rounded-xl ${densityPadding} shadow-xs print:border-0 print:shadow-none print:rounded-none print:p-6 ${
+      className={`glass-paper w-full max-w-[740px] mx-auto bg-white text-slate-900 border border-slate-200 rounded-xl ${densityPadding} shadow-xs print:border-0 print:shadow-none print:rounded-none print:p-6 ${
         !isLast ? 'print:break-after-page mb-6 print:mb-0' : ''
       }`}
     >

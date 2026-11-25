@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import {
   DEFAULT_LOGIN_PRESENTATION_SETTINGS,
+  applyBackgroundOpacity,
   getLoginFontFamilyCss,
   isHexColorDark,
   type LoginPresentationSettings,
@@ -66,21 +67,40 @@ export function LoginScreen({
 
   return (
     <div
-      className={`min-h-screen bg-slate-50 flex flex-col ${
+      className={`min-h-screen relative overflow-hidden flex flex-col ${
         settings.showHeroImage
           ? 'lg:grid lg:grid-cols-12 items-stretch'
           : 'items-center justify-center p-4 sm:p-8'
       }`}
+      style={{
+        background:
+          'linear-gradient(135deg, #dbeafe 0%, #eef2ff 38%, #ecfeff 72%, #f3e8ff 100%)',
+      }}
     >
-      {/* Left / Main: Local Desktop Authentication Panel */}
       <div
-        className={`${
+        aria-hidden="true"
+        className="fixed inset-0 z-0 pointer-events-none glass-atmosphere-orbs"
+      />
+      {/* Left / Main: Frosted Glass Authentication Panel */}
+      <div
+        className={`relative z-10 backdrop-blur-2xl backdrop-saturate-150 ${
           settings.showHeroImage
-            ? 'lg:col-span-5 flex flex-col justify-between p-8 sm:p-12 lg:p-16 border-b lg:border-b-0 lg:border-r border-slate-200'
-            : 'w-full max-w-lg rounded-2xl border border-slate-200 p-8 sm:p-12 shadow-xs'
+            ? `lg:col-span-5 flex flex-col justify-between p-8 sm:p-12 lg:p-16 border-b lg:border-b-0 lg:border-r ${
+                darkPanel
+                  ? 'border-white/15 shadow-[12px_0_40px_-14px_rgba(2,6,23,0.45)]'
+                  : 'border-white/75 shadow-[12px_0_40px_-14px_rgba(15,23,42,0.12)]'
+              }`
+            : `w-full max-w-lg rounded-3xl border p-8 sm:p-12 ${
+                darkPanel
+                  ? 'border-white/15 shadow-[0_24px_60px_-16px_rgba(2,6,23,0.55)]'
+                  : 'border-white/80 shadow-[0_24px_60px_-16px_rgba(15,23,42,0.16)]'
+              }`
         }`}
         style={{
-          backgroundColor: settings.panelBgColor || '#ffffff',
+          background: applyBackgroundOpacity(
+            settings.panelBgColor || '#ffffff',
+            64
+          ),
           fontFamily: fontCss,
         }}
       >
@@ -156,7 +176,7 @@ export function LoginScreen({
                     if (authError) clearAuthError();
                   }}
                   placeholder="ej. admin"
-                  className="w-full pl-9 pr-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-blue-600 font-mono"
+                  className="w-full pl-9 pr-3.5 py-2.5 text-sm text-slate-900 bg-white/70 backdrop-blur-md border border-white/80 rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus:outline-none focus:border-blue-500 font-mono"
                 />
               </div>
             </div>
@@ -183,7 +203,7 @@ export function LoginScreen({
                     if (authError) clearAuthError();
                   }}
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-10 py-2.5 text-sm text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-blue-600"
+                  className="w-full pl-9 pr-10 py-2.5 text-sm text-slate-900 bg-white/70 backdrop-blur-md border border-white/80 rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] focus:outline-none focus:border-blue-500"
                 />
                 <button
                   type="button"
@@ -201,7 +221,7 @@ export function LoginScreen({
             </div>
 
             {authError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 leading-relaxed">
+              <div className="p-3 bg-red-50/85 backdrop-blur-md border border-red-200/80 rounded-xl text-xs text-red-700 leading-relaxed">
                 {authError}
               </div>
             )}
@@ -215,7 +235,7 @@ export function LoginScreen({
                   : settings.accentColor || '#0f172a',
                 color: darkAccent || submitting ? '#ffffff' : '#0f172a',
               }}
-              className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3 text-sm font-semibold rounded-xl transition-opacity hover:opacity-95 disabled:cursor-not-allowed"
+              className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3 text-sm font-semibold rounded-xl shadow-[0_12px_28px_-10px_rgba(15,23,42,0.45)] transition-all hover:opacity-95 hover:-translate-y-px disabled:cursor-not-allowed cursor-pointer"
             >
               <span>
                 {submitting
@@ -232,7 +252,7 @@ export function LoginScreen({
 
       {/* Right: Customizable Studio Retail Photography Showcase */}
       {settings.showHeroImage && (
-        <div className="lg:col-span-7 relative min-h-[320px] lg:min-h-screen bg-slate-900 overflow-hidden">
+        <div className="lg:col-span-7 relative z-10 min-h-[320px] lg:min-h-screen bg-slate-900 overflow-hidden">
           {heroImgFailed || !settings.heroImageUrl ? (
             <div className="w-full h-full flex items-center justify-center bg-slate-900 text-slate-400">
               <Smartphone className="w-16 h-16" />
@@ -249,7 +269,7 @@ export function LoginScreen({
 
           {settings.heroCaption.trim() && (
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/20 to-transparent flex items-end p-8 sm:p-12">
-              <div className="max-w-lg text-white">
+              <div className="max-w-lg text-white rounded-2xl bg-slate-950/55 backdrop-blur-xl border border-white/20 p-5 shadow-2xl">
                 <p className="text-lg font-medium leading-snug">
                   {settings.heroCaption}
                 </p>

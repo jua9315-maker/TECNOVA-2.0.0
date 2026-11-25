@@ -39,6 +39,19 @@ const THEME_PRESETS: {
   patch: Partial<AppAppearanceSettings>;
 }[] = [
   {
+    id: 'glassmorphism',
+    label: 'Cristal Glassmorphism',
+    patch: {
+      surfaceOpacityPercent: 62,
+      accentColor: '#1d4ed8',
+      primaryColor: '#0f172a',
+      sidebarBgColor: '#ffffff',
+      headerBgColor: '#ffffff',
+      canvasBgColor:
+        'linear-gradient(135deg, #dbeafe 0%, #eef2ff 38%, #ecfeff 72%, #f3e8ff 100%)',
+    },
+  },
+  {
     id: 'classic',
     label: 'Estudio Clásico',
     patch: {

@@ -33,7 +33,7 @@ export function ReceiptDocument({
 
   return (
     <div
-      className={`${containerWidthClass} mx-auto bg-white text-slate-900 border border-slate-200 rounded-lg p-5 font-mono shadow-xs print:border-0 print:shadow-none print:rounded-none print:p-2`}
+      className={`glass-paper ${containerWidthClass} mx-auto bg-white text-slate-900 border border-slate-200 rounded-lg p-5 font-mono shadow-xs print:border-0 print:shadow-none print:rounded-none print:p-2`}
     >
       {/* Header */}
       <div className="text-center space-y-1 pb-3 border-b border-dashed border-slate-300">

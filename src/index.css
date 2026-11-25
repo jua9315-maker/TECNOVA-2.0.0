@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
@@ -8,40 +9,243 @@
 }
 
 :root {
-  --app-bg: #f8fafc;
+  --app-bg: linear-gradient(135deg, #dbeafe 0%, #eef2ff 38%, #ecfeff 72%, #f3e8ff 100%);
   --app-font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --app-surface-opacity: 0.78;
+  --app-surface-opacity: 0.62;
+  --glass-blur: 20px;
+  --glass-saturation: 165%;
+  --glass-border-light: rgb(255 255 255 / 0.72);
+  --glass-border-soft: rgb(255 255 255 / 0.52);
+  --glass-border-dark: rgb(255 255 255 / 0.16);
+  --glass-shadow-sm:
+    0 8px 24px -10px rgb(15 23 42 / 0.10),
+    0 2px 8px -2px rgb(15 23 42 / 0.05),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.78);
+  --glass-shadow-md:
+    0 18px 42px -14px rgb(15 23 42 / 0.14),
+    0 6px 16px -4px rgb(15 23 42 / 0.06),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.85);
+  --glass-shadow-dark:
+    0 20px 48px -16px rgb(2 6 23 / 0.48),
+    0 6px 16px -4px rgb(2 6 23 / 0.25),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.14);
+}
+
+:root.dark {
+  --app-bg: linear-gradient(135deg, #020617 0%, #0f172a 44%, #111827 74%, #1e1b4b 100%);
 }
 
 @media screen {
-  :where([class~="bg-white"]) {
+  /* Atmospheric ambient light mesh behind glass layers */
+  .glass-atmosphere-orbs {
+    background-image:
+      radial-gradient(620px circle at 10% 12%, rgb(56 189 248 / 0.26), transparent 62%),
+      radial-gradient(560px circle at 88% 16%, rgb(139 92 246 / 0.22), transparent 60%),
+      radial-gradient(640px circle at 76% 84%, rgb(14 165 233 / 0.18), transparent 64%),
+      radial-gradient(520px circle at 18% 82%, rgb(236 72 153 / 0.13), transparent 62%);
+  }
+
+  .dark .glass-atmosphere-orbs {
+    background-image:
+      radial-gradient(640px circle at 12% 14%, rgb(14 165 233 / 0.22), transparent 62%),
+      radial-gradient(580px circle at 86% 18%, rgb(139 92 246 / 0.24), transparent 60%),
+      radial-gradient(620px circle at 74% 85%, rgb(6 182 212 / 0.16), transparent 64%),
+      radial-gradient(500px circle at 20% 82%, rgb(217 70 239 / 0.12), transparent 62%);
+  }
+
+  /* Translucent glass surfaces (Light Mode) */
+  :where([class~="bg-white"]:not(.glass-paper):not(.glass-paper *)) {
     background-color: rgb(255 255 255 / var(--app-surface-opacity)) !important;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
   }
 
-  :where([class~="bg-slate-50"]) {
-    background-color: rgb(248 250 252 / var(--app-surface-opacity)) !important;
-    backdrop-filter: blur(10px);
+  :where([class~="bg-slate-50"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(248 250 252 / calc(var(--app-surface-opacity) * 0.86)) !important;
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
   }
 
-  :where([class~="bg-slate-100"]) {
-    background-color: rgb(241 245 249 / var(--app-surface-opacity)) !important;
-    backdrop-filter: blur(10px);
+  :where([class~="bg-slate-100"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(241 245 249 / calc(var(--app-surface-opacity) * 0.80)) !important;
+    backdrop-filter: blur(14px) saturate(145%);
+    -webkit-backdrop-filter: blur(14px) saturate(145%);
   }
 
-  :where([class~="bg-slate-200"]) {
-    background-color: rgb(226 232 240 / var(--app-surface-opacity)) !important;
-    backdrop-filter: blur(10px);
+  :where([class~="bg-slate-200"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(226 232 240 / calc(var(--app-surface-opacity) * 0.78)) !important;
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
   }
 
-  :where([class~="bg-slate-900"]) {
-    background-color: rgb(15 23 42 / var(--app-surface-opacity)) !important;
-    backdrop-filter: blur(10px);
+  :where([class~="bg-slate-900"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(15 23 42 / clamp(0.68, calc(var(--app-surface-opacity) + 0.14), 0.92)) !important;
+    backdrop-filter: blur(22px) saturate(170%);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
   }
 
-  :where([class~="bg-slate-950"]) {
-    background-color: rgb(2 6 23 / var(--app-surface-opacity)) !important;
-    backdrop-filter: blur(10px);
+  :where([class~="bg-slate-950"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(2 6 23 / clamp(0.72, calc(var(--app-surface-opacity) + 0.16), 0.94)) !important;
+    backdrop-filter: blur(24px) saturate(175%);
+    -webkit-backdrop-filter: blur(24px) saturate(175%);
+  }
+
+  /* Translucent glass surfaces (Dark Mode via .dark) */
+  :where(.dark [class~="bg-white"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(15 23 42 / clamp(0.66, calc(var(--app-surface-opacity) + 0.08), 0.88)) !important;
+    color: #f1f5f9;
+  }
+
+  :where(.dark [class~="bg-slate-50"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(30 41 59 / clamp(0.58, var(--app-surface-opacity), 0.82)) !important;
+    color: #e2e8f0;
+  }
+
+  :where(.dark [class~="bg-slate-100"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(30 41 59 / clamp(0.70, calc(var(--app-surface-opacity) + 0.10), 0.88)) !important;
+    color: #e2e8f0;
+  }
+
+  :where(.dark [class~="bg-slate-200"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(51 65 85 / clamp(0.66, calc(var(--app-surface-opacity) + 0.08), 0.86)) !important;
+    color: #f8fafc;
+  }
+
+  :where(.dark [class~="text-slate-900"]:not(.glass-paper):not(.glass-paper *)) {
+    color: #f8fafc;
+  }
+
+  :where(.dark [class~="text-slate-800"]:not(.glass-paper):not(.glass-paper *)) {
+    color: #e2e8f0;
+  }
+
+  :where(.dark [class~="text-slate-700"]:not(.glass-paper):not(.glass-paper *)) {
+    color: #cbd5e1;
+  }
+
+  :where(.dark [class~="text-slate-600"]:not(.glass-paper):not(.glass-paper *)) {
+    color: #94a3b8;
+  }
+
+  :where(.dark [class~="text-slate-500"]:not(.glass-paper):not(.glass-paper *)) {
+    color: #94a3b8;
+  }
+
+  :where(.dark [class~="border-slate-200"]:not(.glass-paper):not(.glass-paper *)),
+  :where(.dark [class~="border-slate-100"]:not(.glass-paper):not(.glass-paper *)) {
+    border-color: rgb(255 255 255 / 0.14);
+  }
+
+  :where(.dark [class~="bg-blue-50"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(30 58 138 / 0.35) !important;
+    color: #93c5fd;
+  }
+
+  :where(.dark [class~="bg-emerald-50"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(6 78 59 / 0.35) !important;
+    color: #6ee7b7;
+  }
+
+  :where(.dark [class~="bg-amber-50"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(120 53 15 / 0.35) !important;
+    color: #fcd34d;
+  }
+
+  :where(.dark [class~="bg-red-50"]:not(.glass-paper):not(.glass-paper *)),
+  :where(.dark [class~="bg-rose-50"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(127 29 29 / 0.35) !important;
+    color: #fca5a5;
+  }
+
+  :where(.dark [class~="bg-cyan-50"]:not(.glass-paper):not(.glass-paper *)) {
+    background-color: rgb(22 78 99 / 0.35) !important;
+    color: #67e8f9;
+  }
+
+  /* Specular glass borders & soft ambient shadows for layered depth */
+  :where(
+    [class~="bg-white"]:is(.rounded-xl, .rounded-2xl, .rounded-3xl, aside, header, section):not(button):not(.glass-paper):not(.glass-paper *)
+  ) {
+    border-color: var(--glass-border-light);
+    box-shadow: var(--glass-shadow-sm);
+  }
+
+  :where(
+    .dark [class~="bg-white"]:is(.rounded-xl, .rounded-2xl, .rounded-3xl, aside, header, section):not(button):not(.glass-paper):not(.glass-paper *)
+  ) {
+    border-color: var(--glass-border-dark);
+    box-shadow: var(--glass-shadow-dark);
+  }
+
+  :where(
+    [class~="bg-white"]:is(.rounded-2xl, .rounded-3xl):not(button):not(.glass-paper):not(.glass-paper *)
+  ) {
+    box-shadow: var(--glass-shadow-md);
+  }
+
+  :where(
+    .dark [class~="bg-white"]:is(.rounded-2xl, .rounded-3xl):not(button):not(.glass-paper):not(.glass-paper *)
+  ) {
+    box-shadow: var(--glass-shadow-dark);
+  }
+
+  :where(
+    [class~="bg-slate-50"]:is(.rounded-xl, .rounded-2xl):not(button):not(input):not(select):not(textarea):not(.glass-paper):not(.glass-paper *)
+  ) {
+    border-color: var(--glass-border-soft);
+    box-shadow:
+      0 4px 16px -8px rgb(15 23 42 / 0.08),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.65);
+  }
+
+  :where(
+    .dark [class~="bg-slate-50"]:is(.rounded-xl, .rounded-2xl):not(button):not(input):not(select):not(textarea):not(.glass-paper):not(.glass-paper *)
+  ) {
+    border-color: var(--glass-border-dark);
+    box-shadow: var(--glass-shadow-dark);
+  }
+
+  :where(
+    [class~="bg-slate-900"]:is(.rounded-xl, .rounded-2xl, .rounded-3xl, aside, header, section):not(button):not(.glass-paper *),
+    [class~="bg-slate-950"]:is(.rounded-xl, .rounded-2xl, .rounded-3xl, aside, header, section):not(button):not(.glass-paper *)
+  ) {
+    border-color: var(--glass-border-dark);
+    box-shadow: var(--glass-shadow-dark);
+  }
+
+  /* Frosted glass form inputs */
+  :where(input, select, textarea):not([type="color"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.glass-paper *) {
+    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  :where(input, select, textarea):not([type="color"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus:not(.glass-paper *) {
+    background-color: rgb(255 255 255 / 0.88) !important;
+    box-shadow:
+      0 0 0 3px rgb(59 130 246 / 0.14),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.9);
+  }
+
+  :where(.dark input, .dark select, .dark textarea):not([type="color"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus:not(.glass-paper *) {
+    background-color: rgb(30 41 59 / 0.92) !important;
+    color: #f8fafc;
+    box-shadow:
+      0 0 0 3px rgb(56 189 248 / 0.22),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.12);
+  }
+
+  /* Modal backdrop blur for floating glass overlays */
+  :where(.fixed.inset-0):not(.glass-atmosphere-orbs) {
+    backdrop-filter: blur(10px) saturate(135%);
+    -webkit-backdrop-filter: blur(10px) saturate(135%);
+  }
+
+  /* Crisp opaque paper for printable receipts and warranty sheets */
+  .glass-paper {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 20px 50px -18px rgb(15 23 42 / 0.22) !important;
   }
 }
 
@@ -53,8 +257,13 @@
 
   body {
     background: var(--app-bg);
+    background-attachment: fixed;
     color: #0f172a;
     overflow-x: hidden;
+  }
+
+  html.dark body {
+    color: #f1f5f9;
   }
 }
 

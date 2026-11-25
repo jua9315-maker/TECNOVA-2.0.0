@@ -81,29 +81,16 @@ export function SettingsWorkspaceView({
   return (
     <div className="space-y-6">
       <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col gap-4">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-blue-700" />
-              <h1 className="text-xl font-semibold text-slate-900">
-                Configuración del Sistema
-              </h1>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Personaliza la apariencia, nombre y logo del programa instalado, pantalla de inicio, comprobantes y reglas de Modo Desarrollador.
-            </p>
+        <div>
+          <div className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-blue-700" />
+            <h1 className="text-xl font-semibold text-slate-900">
+              Configuración del Sistema
+            </h1>
           </div>
-
-          {onOpenVisualEditor && (
-            <button
-              type="button"
-              onClick={onOpenVisualEditor}
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-950 text-cyan-300 hover:bg-slate-900 border border-cyan-500/40 shadow-xs transition-colors whitespace-nowrap shrink-0 self-start lg:self-auto cursor-pointer"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              Abrir Editor Visual Sin Código
-            </button>
-          )}
+          <p className="text-xs text-slate-500 mt-1">
+            Personaliza la apariencia, nombre y logo del programa instalado, pantalla de inicio, comprobantes y reglas de Modo Desarrollador.
+          </p>
         </div>
 
         <div className="inline-flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-lg self-start">

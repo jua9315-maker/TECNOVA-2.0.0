@@ -628,6 +628,40 @@ export async function ensureLocalDbReady(): Promise<void> {
 
       await putOneRaw('meta', { key: 'migration_brand_tecnova_v1', value: true });
     }
+
+    const glassmorphismMigration = await getOneRaw<{ key: string; value: boolean }>(
+      'meta',
+      'migration_glassmorphism_v1'
+    );
+    if (!glassmorphismMigration?.value) {
+      const appRow = await getOneRaw<{ key: string; value: AppAppearanceSettings }>(
+        'meta',
+        'app_appearance_settings'
+      );
+      if (appRow?.value) {
+        const current = appRow.value;
+        const isDefaultCanvas =
+          !current.canvasBgColor || current.canvasBgColor === '#f8fafc';
+        const isDefaultOpacity =
+          current.surfaceOpacityPercent === undefined ||
+          current.surfaceOpacityPercent === 78;
+        if (isDefaultCanvas || isDefaultOpacity) {
+          await putOneRaw('meta', {
+            key: 'app_appearance_settings',
+            value: {
+              ...current,
+              canvasBgColor: isDefaultCanvas
+                ? DEFAULT_APP_APPEARANCE_SETTINGS.canvasBgColor
+                : current.canvasBgColor,
+              surfaceOpacityPercent: isDefaultOpacity
+                ? DEFAULT_APP_APPEARANCE_SETTINGS.surfaceOpacityPercent
+                : current.surfaceOpacityPercent,
+            },
+          });
+        }
+      }
+      await putOneRaw('meta', { key: 'migration_glassmorphism_v1', value: true });
+    }
   })();
   return initPromise;
 }
