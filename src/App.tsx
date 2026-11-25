@@ -250,6 +250,19 @@ function WorkspaceApp() {
   }, [themeMode]);
 
   useEffect(() => {
+    const handleThemeSync = (event: Event) => {
+      const next = (event as CustomEvent<'light' | 'dark'>).detail;
+      if (next === 'dark' || next === 'light') {
+        setThemeMode(next);
+      }
+    };
+    window.addEventListener('tecnova-theme-sync', handleThemeSync);
+    return () => {
+      window.removeEventListener('tecnova-theme-sync', handleThemeSync);
+    };
+  }, []);
+
+  useEffect(() => {
     const root = document.documentElement;
     const isDark = themeMode === 'dark';
     root.style.setProperty(

@@ -1863,3 +1863,433 @@ export async function importDesktopDatabaseJson(jsonText: string): Promise<{
     accounts: accounts.length,
   };
 }
+
+export type SettingsBundleKey =
+  | 'appAppearance'
+  | 'installedApp'
+  | 'loginPresentation'
+  | 'receipt'
+  | 'warrantySheet'
+  | 'pos'
+  | 'catalog'
+  | 'developerSystem'
+  | 'visualCustomization';
+
+export const ALL_SETTINGS_BUNDLE_KEYS: SettingsBundleKey[] = [
+  'appAppearance',
+  'installedApp',
+  'loginPresentation',
+  'receipt',
+  'warrantySheet',
+  'pos',
+  'catalog',
+  'developerSystem',
+  'visualCustomization',
+];
+
+export interface SettingsBackupSnapshot {
+  kind: 'tecnova-settings-backup';
+  app: 'TECNOVA Escritorio';
+  version: 1;
+  exportedAt: string;
+  themeMode?: 'light' | 'dark';
+  includedSections: SettingsBundleKey[];
+  appAppearanceSettings?: AppAppearanceSettings;
+  installedAppSettings?: InstalledAppSettings;
+  loginPresentationSettings?: LoginPresentationSettings;
+  receiptSettings?: ReceiptSettings;
+  warrantySheetSettings?: WarrantySheetSettings;
+  posSettings?: PosSettings;
+  developerSystemSettings?: DeveloperSystemSettings;
+  customProductCategories?: string[];
+  visualCustomizationSettings?: VisualCustomizationSettings;
+}
+
+function readStoredThemeMode(): 'light' | 'dark' {
+  try {
+    return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
+}
+
+function applyThemeModeChange(nextTheme: 'light' | 'dark'): void {
+  try {
+    localStorage.setItem('theme', nextTheme);
+  } catch {
+    // Ignore unavailable localStorage
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('tecnova-theme-sync', { detail: nextTheme })
+    );
+  }
+}
+
+export async function exportSettingsBundleJson(
+  selectedKeys: SettingsBundleKey[] = ALL_SETTINGS_BUNDLE_KEYS,
+  themeMode?: 'light' | 'dark'
+): Promise<string> {
+  await ensureLocalDbReady();
+  const keys =
+    selectedKeys.length > 0
+      ? ALL_SETTINGS_BUNDLE_KEYS.filter((k) => selectedKeys.includes(k))
+      : [...ALL_SETTINGS_BUNDLE_KEYS];
+
+  const [
+    appAppearanceSettings,
+    installedAppSettings,
+    loginPresentationSettings,
+    receiptSettings,
+    warrantySheetSettings,
+    posSettings,
+    developerSystemSettings,
+    customProductCategories,
+    visualCustomizationSettings,
+  ] = await Promise.all([
+    getAppAppearanceSettings(),
+    getInstalledAppSettings(),
+    getLoginPresentationSettings(),
+    getReceiptSettings(),
+    getWarrantySheetSettings(),
+    getPosSettings(),
+    getDeveloperSystemSettings(),
+    getCustomProductCategories(),
+    getVisualCustomizationSettings(),
+  ]);
+
+  const snapshot: SettingsBackupSnapshot = {
+    kind: 'tecnova-settings-backup',
+    app: 'TECNOVA Escritorio',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    includedSections: keys,
+  };
+
+  if (keys.includes('appAppearance')) {
+    snapshot.appAppearanceSettings = appAppearanceSettings;
+    snapshot.themeMode = themeMode ?? readStoredThemeMode();
+  }
+  if (keys.includes('installedApp')) {
+    snapshot.installedAppSettings = installedAppSettings;
+  }
+  if (keys.includes('loginPresentation')) {
+    snapshot.loginPresentationSettings = loginPresentationSettings;
+  }
+  if (keys.includes('receipt')) {
+    snapshot.receiptSettings = receiptSettings;
+  }
+  if (keys.includes('warrantySheet')) {
+    snapshot.warrantySheetSettings = warrantySheetSettings;
+  }
+  if (keys.includes('pos')) {
+    snapshot.posSettings = posSettings;
+  }
+  if (keys.includes('catalog')) {
+    snapshot.customProductCategories = customProductCategories;
+    snapshot.developerSystemSettings = {
+      ...(snapshot.developerSystemSettings || developerSystemSettings),
+      catalogImagePresets: developerSystemSettings.catalogImagePresets,
+      productConditions: developerSystemSettings.productConditions,
+    };
+  }
+  if (keys.includes('developerSystem')) {
+    snapshot.developerSystemSettings = developerSystemSettings;
+  }
+  if (keys.includes('visualCustomization')) {
+    snapshot.visualCustomizationSettings = visualCustomizationSettings;
+  }
+
+  return JSON.stringify(snapshot, null, 2);
+}
+
+export interface ParsedSettingsBackup {
+  sourceKind: 'settings' | 'full-desktop';
+  exportedAt: string;
+  appName: string;
+  themeMode?: 'light' | 'dark';
+  availableKeys: SettingsBundleKey[];
+  snapshot: Partial<SettingsBackupSnapshot>;
+}
+
+export function parseSettingsBackupJson(jsonText: string): ParsedSettingsBackup {
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(jsonText) as Record<string, unknown>;
+  } catch {
+    throw new Error('El archivo JSON no tiene un formato válido.');
+  }
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('El archivo seleccionado no contiene configuraciones válidas.');
+  }
+
+  const parsed = raw as Partial<SettingsBackupSnapshot & DesktopBackupSnapshot>;
+  const isSettingsFile = parsed.kind === 'tecnova-settings-backup';
+  const isFullDesktopFile =
+    !isSettingsFile &&
+    (parsed.app === 'TECNOVA Escritorio' ||
+      parsed.app === 'NexoCell Studio Escritorio' ||
+      typeof parsed.exportedAt === 'string');
+
+  if (!isSettingsFile && !isFullDesktopFile) {
+    throw new Error(
+      'El archivo seleccionado no corresponde a un respaldo de configuraciones de TECNOVA.'
+    );
+  }
+
+  const availableKeys: SettingsBundleKey[] = [];
+  const included = Array.isArray(parsed.includedSections)
+    ? new Set<SettingsBundleKey>(parsed.includedSections)
+    : null;
+
+  if (parsed.appAppearanceSettings && typeof parsed.appAppearanceSettings === 'object') {
+    availableKeys.push('appAppearance');
+  }
+  if (parsed.installedAppSettings && typeof parsed.installedAppSettings === 'object') {
+    availableKeys.push('installedApp');
+  }
+  if (
+    parsed.loginPresentationSettings &&
+    typeof parsed.loginPresentationSettings === 'object'
+  ) {
+    availableKeys.push('loginPresentation');
+  }
+  if (parsed.receiptSettings && typeof parsed.receiptSettings === 'object') {
+    availableKeys.push('receipt');
+  }
+  if (parsed.warrantySheetSettings && typeof parsed.warrantySheetSettings === 'object') {
+    availableKeys.push('warrantySheet');
+  }
+  if (parsed.posSettings && typeof parsed.posSettings === 'object') {
+    availableKeys.push('pos');
+  }
+
+  const hasCatalogData =
+    Array.isArray(parsed.customProductCategories) ||
+    Boolean(parsed.developerSystemSettings?.catalogImagePresets) ||
+    Boolean(parsed.developerSystemSettings?.productConditions);
+  if (hasCatalogData && (!included || included.has('catalog'))) {
+    availableKeys.push('catalog');
+  }
+
+  if (
+    parsed.developerSystemSettings &&
+    typeof parsed.developerSystemSettings === 'object' &&
+    (!included || included.has('developerSystem'))
+  ) {
+    availableKeys.push('developerSystem');
+  }
+
+  if (
+    parsed.visualCustomizationSettings &&
+    typeof parsed.visualCustomizationSettings === 'object'
+  ) {
+    availableKeys.push('visualCustomization');
+  }
+
+  if (availableKeys.length === 0) {
+    throw new Error(
+      'El archivo no contiene ninguna sección de configuración reconocible.'
+    );
+  }
+
+  const safeTheme =
+    parsed.themeMode === 'dark' || parsed.themeMode === 'light'
+      ? parsed.themeMode
+      : undefined;
+
+  return {
+    sourceKind: isSettingsFile ? 'settings' : 'full-desktop',
+    exportedAt:
+      typeof parsed.exportedAt === 'string'
+        ? parsed.exportedAt
+        : new Date().toISOString(),
+    appName:
+      typeof parsed.app === 'string' && parsed.app.trim()
+        ? parsed.app
+        : 'TECNOVA Escritorio',
+    themeMode: safeTheme,
+    availableKeys,
+    snapshot: parsed,
+  };
+}
+
+export async function restoreSettingsFromParsedBackup(
+  parsed: Partial<SettingsBackupSnapshot>,
+  selectedKeys: SettingsBundleKey[]
+): Promise<{ appliedKeys: SettingsBundleKey[]; themeMode?: 'light' | 'dark' }> {
+  await ensureLocalDbReady();
+  const appliedKeys: SettingsBundleKey[] = [];
+  const wants = new Set<SettingsBundleKey>(selectedKeys);
+
+  if (wants.has('appAppearance') && parsed.appAppearanceSettings) {
+    await saveAppAppearanceSettings(parsed.appAppearanceSettings);
+    if (parsed.themeMode === 'dark' || parsed.themeMode === 'light') {
+      applyThemeModeChange(parsed.themeMode);
+    }
+    appliedKeys.push('appAppearance');
+  }
+
+  if (wants.has('installedApp') && parsed.installedAppSettings) {
+    await saveInstalledAppSettings(parsed.installedAppSettings);
+    appliedKeys.push('installedApp');
+  }
+
+  if (wants.has('loginPresentation') && parsed.loginPresentationSettings) {
+    await saveLoginPresentationSettings(parsed.loginPresentationSettings);
+    appliedKeys.push('loginPresentation');
+  }
+
+  if (wants.has('receipt') && parsed.receiptSettings) {
+    await saveReceiptSettings(parsed.receiptSettings);
+    appliedKeys.push('receipt');
+  }
+
+  if (wants.has('warrantySheet') && parsed.warrantySheetSettings) {
+    await saveWarrantySheetSettings(parsed.warrantySheetSettings);
+    appliedKeys.push('warrantySheet');
+  }
+
+  if (wants.has('pos') && parsed.posSettings) {
+    await savePosSettings(parsed.posSettings);
+    appliedKeys.push('pos');
+  }
+
+  const wantsCatalog = wants.has('catalog');
+  const wantsDevSys = wants.has('developerSystem');
+
+  if (wantsCatalog || wantsDevSys) {
+    const currentDevSys = await getDeveloperSystemSettings();
+
+    if (wantsCatalog && Array.isArray(parsed.customProductCategories)) {
+      await saveCustomProductCategories(parsed.customProductCategories);
+    }
+
+    if (wantsDevSys && wantsCatalog && parsed.developerSystemSettings) {
+      await saveDeveloperSystemSettings(parsed.developerSystemSettings);
+      appliedKeys.push('catalog', 'developerSystem');
+    } else if (wantsDevSys && parsed.developerSystemSettings) {
+      await saveDeveloperSystemSettings({
+        ...parsed.developerSystemSettings,
+        catalogImagePresets: currentDevSys.catalogImagePresets,
+        productConditions: currentDevSys.productConditions,
+      });
+      appliedKeys.push('developerSystem');
+    } else if (wantsCatalog) {
+      if (parsed.developerSystemSettings) {
+        await saveDeveloperSystemSettings({
+          ...currentDevSys,
+          catalogImagePresets:
+            parsed.developerSystemSettings.catalogImagePresets ??
+            currentDevSys.catalogImagePresets,
+          productConditions:
+            parsed.developerSystemSettings.productConditions ??
+            currentDevSys.productConditions,
+        });
+      }
+      appliedKeys.push('catalog');
+    }
+  }
+
+  if (wants.has('visualCustomization') && parsed.visualCustomizationSettings) {
+    await saveVisualCustomizationSettings(parsed.visualCustomizationSettings);
+    appliedKeys.push('visualCustomization');
+  }
+
+  return {
+    appliedKeys,
+    themeMode:
+      wants.has('appAppearance') &&
+      (parsed.themeMode === 'dark' || parsed.themeMode === 'light')
+        ? parsed.themeMode
+        : undefined,
+  };
+}
+
+export async function resetSettingsToFactoryDefaults(
+  selectedKeys: SettingsBundleKey[]
+): Promise<{ resetKeys: SettingsBundleKey[] }> {
+  await ensureLocalDbReady();
+  const resetKeys: SettingsBundleKey[] = [];
+  const wants = new Set<SettingsBundleKey>(selectedKeys);
+
+  if (wants.has('appAppearance')) {
+    await saveAppAppearanceSettings({ ...DEFAULT_APP_APPEARANCE_SETTINGS });
+    applyThemeModeChange('light');
+    resetKeys.push('appAppearance');
+  }
+
+  if (wants.has('installedApp')) {
+    await saveInstalledAppSettings({ ...DEFAULT_INSTALLED_APP_SETTINGS });
+    resetKeys.push('installedApp');
+  }
+
+  if (wants.has('loginPresentation')) {
+    await saveLoginPresentationSettings({
+      ...DEFAULT_LOGIN_PRESENTATION_SETTINGS,
+    });
+    resetKeys.push('loginPresentation');
+  }
+
+  if (wants.has('receipt')) {
+    await saveReceiptSettings({ ...DEFAULT_RECEIPT_SETTINGS });
+    resetKeys.push('receipt');
+  }
+
+  if (wants.has('warrantySheet')) {
+    await saveWarrantySheetSettings({ ...DEFAULT_WARRANTY_SHEET_SETTINGS });
+    resetKeys.push('warrantySheet');
+  }
+
+  if (wants.has('pos')) {
+    await savePosSettings({ ...DEFAULT_POS_SETTINGS });
+    resetKeys.push('pos');
+  }
+
+  const wantsCatalog = wants.has('catalog');
+  const wantsDevSys = wants.has('developerSystem');
+
+  if (wantsCatalog || wantsDevSys) {
+    const currentDevSys = await getDeveloperSystemSettings();
+
+    if (wantsCatalog) {
+      await saveCustomProductCategories([]);
+    }
+
+    if (wantsCatalog && wantsDevSys) {
+      await saveDeveloperSystemSettings({
+        ...DEFAULT_DEVELOPER_SYSTEM_SETTINGS,
+        catalogImagePresets: DEFAULT_CATALOG_IMAGE_PRESETS.map((p) => ({ ...p })),
+        productConditions: [...PRODUCT_CONDITIONS],
+      });
+      resetKeys.push('catalog', 'developerSystem');
+    } else if (wantsDevSys) {
+      await saveDeveloperSystemSettings({
+        ...DEFAULT_DEVELOPER_SYSTEM_SETTINGS,
+        catalogImagePresets: currentDevSys.catalogImagePresets,
+        productConditions: currentDevSys.productConditions,
+      });
+      resetKeys.push('developerSystem');
+    } else if (wantsCatalog) {
+      await saveDeveloperSystemSettings({
+        ...currentDevSys,
+        catalogImagePresets: DEFAULT_CATALOG_IMAGE_PRESETS.map((p) => ({ ...p })),
+        productConditions: [...PRODUCT_CONDITIONS],
+      });
+      resetKeys.push('catalog');
+    }
+  }
+
+  if (wants.has('visualCustomization')) {
+    await saveVisualCustomizationSettings({
+      ...DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS,
+      patches: {},
+      navOrder: [...DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.navOrder],
+      navLabels: {},
+    });
+    resetKeys.push('visualCustomization');
+  }
+
+  return { resetKeys };
+}
+

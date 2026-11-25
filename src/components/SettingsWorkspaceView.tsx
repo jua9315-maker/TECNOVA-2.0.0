@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Archive,
   Code2,
   Image as ImageIcon,
   Monitor,
@@ -34,6 +35,7 @@ import { ReceiptConfigView } from './ReceiptConfigView';
 import { WarrantySheetConfigView } from './WarrantySheetConfigView';
 import { PhoneConnectionPanel } from './BarcodeQrToolkit';
 import { MobileCompanionScanner } from './MobileCompanionScanner';
+import { SettingsBackupRestoreView } from './SettingsBackupRestoreView';
 
 export type SettingsSection =
   | 'app'
@@ -44,6 +46,7 @@ export type SettingsSection =
   | 'catalog'
   | 'pos'
   | 'phone'
+  | 'backup'
   | 'visual'
   | 'developer';
 
@@ -192,6 +195,18 @@ export function SettingsWorkspaceView({
           </button>
           <button
             type="button"
+            onClick={() => onChangeSection('backup')}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              section === 'backup'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            Respaldo y Restaurar
+          </button>
+          <button
+            type="button"
             onClick={() => onChangeSection('developer')}
             className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               section === 'developer'
@@ -331,6 +346,19 @@ export function SettingsWorkspaceView({
             </aside>
           </div>
         </section>
+      )}
+
+      {section === 'backup' && (
+        <SettingsBackupRestoreView
+          appSettings={appSettings}
+          installedSettings={installedSettings}
+          loginSettings={loginSettings}
+          receiptSettings={receiptSettings}
+          warrantySettings={warrantySettings}
+          posSettings={posSettings}
+          developerSettings={developerSettings}
+          visualCustomization={visualCustomization}
+        />
       )}
 
       {section === 'visual' && (

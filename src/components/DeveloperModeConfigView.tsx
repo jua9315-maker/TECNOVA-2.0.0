@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import {
+  Archive,
   ArrowDown,
   ArrowUp,
   CheckCircle2,
@@ -632,6 +633,25 @@ export function DeveloperModeConfigView({
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">
             Edita títulos, cláusulas, columnas de equipo, sello digital y firmas.
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onChangeSection('backup')}
+          className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-500 text-left transition-colors group cursor-pointer"
+        >
+          <div className="flex items-center justify-between">
+            <Archive className="w-4 h-4 text-blue-700" />
+            <span className="text-[10px] font-medium text-blue-700 group-hover:underline">
+              Abrir →
+            </span>
+          </div>
+          <p className="text-xs font-semibold text-slate-900 mt-2">
+            Respaldo y Restaurar
+          </p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            Descarga todas las configuraciones o restáuralas desde archivo o fábrica.
           </p>
         </button>
       </div>

@@ -34,13 +34,18 @@ import {
   type WarrantyStatus,
 } from '../types/store';
 import {
+  ALL_SETTINGS_BUNDLE_KEYS,
   createLocalAccount,
   deleteLocalDoc,
   exportDesktopDatabaseJson,
+  exportSettingsBundleJson,
   generateLocalId,
   getLocalDoc,
   importDesktopDatabaseJson,
   makeTimestamp,
+  parseSettingsBackupJson,
+  resetSettingsToFactoryDefaults,
+  restoreSettingsFromParsedBackup,
   saveAppAppearanceSettings,
   saveDeveloperSystemSettings,
   saveInstalledAppSettings,
@@ -56,6 +61,9 @@ import {
   updateOwnDeveloperProfile,
   verifyAdministratorAuthorization,
   deleteLocalAccount,
+  type ParsedSettingsBackup,
+  type SettingsBackupSnapshot,
+  type SettingsBundleKey,
 } from './localDb';
 
 export interface ProductInput {
@@ -1264,6 +1272,44 @@ export async function importDesktopBackupFile(file: File): Promise<{
 }> {
   const text = await file.text();
   return importDesktopDatabaseJson(text);
+}
+
+export async function exportSettingsBackupFile(
+  selectedKeys: SettingsBundleKey[] = ALL_SETTINGS_BUNDLE_KEYS,
+  themeMode?: 'light' | 'dark'
+): Promise<{ filename: string; count: number }> {
+  const keys =
+    selectedKeys.length > 0 ? selectedKeys : [...ALL_SETTINGS_BUNDLE_KEYS];
+  const json = await exportSettingsBundleJson(keys, themeMode);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const filename = `configuraciones-tecnova-${getTodayDateKey()}.json`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return { filename, count: keys.length };
+}
+
+export async function inspectSettingsBackupFile(
+  file: File
+): Promise<ParsedSettingsBackup> {
+  const text = await file.text();
+  return parseSettingsBackupJson(text);
+}
+
+export async function applySettingsBackup(
+  snapshot: Partial<SettingsBackupSnapshot>,
+  selectedKeys: SettingsBundleKey[]
+): Promise<{ appliedKeys: SettingsBundleKey[]; themeMode?: 'light' | 'dark' }> {
+  return restoreSettingsFromParsedBackup(snapshot, selectedKeys);
+}
+
+export async function resetStoreSettingsToDefaults(
+  selectedKeys: SettingsBundleKey[]
+): Promise<{ resetKeys: SettingsBundleKey[] }> {
+  return resetSettingsToFactoryDefaults(selectedKeys);
 }
 
 export async function saveStoreReceiptSettings(
