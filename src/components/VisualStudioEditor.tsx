@@ -771,6 +771,15 @@ export function VisualStudioEditor({
   const modulePatchCount = Object.values(draft.patches).filter(
     (p) => p.scope === activeTab
   ).length;
+  const editorOpacityPercent = Math.max(
+    35,
+    Math.min(
+      100,
+      draft.editorOpacityPercent ??
+        DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.editorOpacityPercent
+    )
+  );
+  const editorPanelBackground = `rgb(2 6 23 / ${editorOpacityPercent / 100})`;
 
   return createPortal(
     <>
@@ -810,6 +819,7 @@ export function VisualStudioEditor({
       <div
         data-visual-editor-ui="true"
         className="fixed top-3 left-1/2 -translate-x-1/2 z-[80] w-[96vw] max-w-5xl rounded-2xl bg-slate-950 text-white border border-cyan-500/40 shadow-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3"
+        style={{ backgroundColor: editorPanelBackground }}
       >
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-fuchsia-500 flex items-center justify-center text-slate-950 shrink-0">
@@ -863,6 +873,26 @@ export function VisualStudioEditor({
 
         {/* Module Quick Switcher + Tools */}
         <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/10 text-[11px] text-slate-200">
+            <span>Transparencia</span>
+            <input
+              type="range"
+              min={35}
+              max={100}
+              step={1}
+              value={editorOpacityPercent}
+              onChange={(e) => {
+                const next = {
+                  ...draftRef.current,
+                  editorOpacityPercent: Number(e.target.value),
+                };
+                void commitDraft(next, false);
+              }}
+              aria-label="Transparencia de la ventana del Editor Visual"
+              className="w-20 accent-cyan-400 cursor-pointer"
+            />
+            <span className="w-8 text-right font-mono">{editorOpacityPercent}%</span>
+          </label>
           <select
             value={activeTab}
             onChange={(e) => {
@@ -935,6 +965,7 @@ export function VisualStudioEditor({
         <div
           data-visual-editor-ui="true"
           className="fixed top-20 left-4 z-[80] w-80 max-h-[75vh] overflow-y-auto rounded-2xl bg-slate-950 text-white border border-fuchsia-500/40 shadow-2xl p-4 space-y-3"
+          style={{ backgroundColor: editorPanelBackground }}
         >
           <div className="flex items-center justify-between pb-2 border-b border-white/10">
             <h3 className="text-xs font-bold text-white">
@@ -995,6 +1026,7 @@ export function VisualStudioEditor({
         <div
           data-visual-editor-ui="true"
           className="fixed bottom-4 right-4 z-[80] w-[92vw] max-w-sm rounded-2xl bg-slate-950/75 backdrop-blur-md text-white border border-cyan-400/45 shadow-2xl p-4 space-y-2 pointer-events-none"
+          style={{ backgroundColor: editorPanelBackground }}
         >
           <p className="text-xs font-bold text-cyan-300">
             Opciones de edición
@@ -1019,8 +1051,12 @@ export function VisualStudioEditor({
           }
           style={
             inspectorPosition
-              ? { left: inspectorPosition.x, top: inspectorPosition.y }
-              : undefined
+              ? {
+                  left: inspectorPosition.x,
+                  top: inspectorPosition.y,
+                  backgroundColor: editorPanelBackground,
+                }
+              : { backgroundColor: editorPanelBackground }
           }
         >
           <div
