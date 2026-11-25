@@ -59,7 +59,8 @@ export function MobileCompanionScanner({
   const [liveCameraOpen, setLiveCameraOpen] = useState<boolean>(() => {
     if (preview) return true;
     try {
-      return Boolean(new URLSearchParams(window.location.search).get('pin'));
+      const hasPin = Boolean(new URLSearchParams(window.location.search).get('pin'));
+      return hasPin && window.isSecureContext;
     } catch {
       return false;
     }
@@ -247,7 +248,7 @@ export function MobileCompanionScanner({
       if (!window.isSecureContext) {
         setLiveCameraActive(false);
         setLiveCameraError(
-          'El navegador requiere HTTPS para usar la cámara continua. Este enlace Wi-Fi usa HTTP; por ahora, la captura de foto permite enviar cada código leído automáticamente.'
+          'Estás conectado por HTTP directo (sin certificado): usa el botón blanco "Escanear Código con Cámara del Teléfono" arriba para leer códigos, o usa el modo HTTPS si prefieres video continuo.'
         );
         return;
       }

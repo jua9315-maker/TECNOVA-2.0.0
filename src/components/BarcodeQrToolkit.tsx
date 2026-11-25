@@ -21,6 +21,7 @@ import {
   Printer,
   QrCode,
   RefreshCw,
+  ShieldCheck,
   ShoppingBag,
   Smartphone,
   Video,
@@ -49,12 +50,22 @@ export const BARCODE_AND_QR_FORMATS: Html5QrcodeSupportedFormats[] = [
 
 export type ScannerContextMode = 'general' | 'pos' | 'inventory';
 
+export interface LanBridgeInterface {
+  ip: string;
+  name: string;
+  virtual: boolean;
+  recommended: boolean;
+}
+
 export interface LanBridgeInfo {
   ok: boolean;
+  platform?: string;
   port: number;
   httpsPort: number;
   pin: string;
   ips: string[];
+  interfaces?: LanBridgeInterface[];
+  httpUrls?: string[];
   urls: string[];
   caUrls: string[];
   caFingerprint: string;
@@ -259,8 +270,17 @@ export function PhoneConnectionPanel() {
   const [lanLoading, setLanLoading] = useState(false);
   const [lanError, setLanError] = useState<string | null>(null);
   const [selectedUrlIdx, setSelectedUrlIdx] = useState(0);
+  const [connectionProtocol, setConnectionProtocol] = useState<'http' | 'https'>('http');
+  const [customIp, setCustomIp] = useState('');
+  const [useCustomIp, setUseCustomIp] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedCaUrl, setCopiedCaUrl] = useState(false);
+  const [firewallBusy, setFirewallBusy] = useState(false);
+  const [firewallFeedback, setFirewallFeedback] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     if (!lanBridgeUrl) return;
@@ -269,7 +289,9 @@ export function PhoneConnectionPanel() {
     const loadInfo = async (showLoading: boolean) => {
       if (showLoading) setLanLoading(true);
       try {
-        const res = await fetch(`${lanBridgeUrl}/api/lan-scanner/info`);
+        const res = await fetch(`${lanBridgeUrl}/api/lan-scanner/info`, {
+          cache: 'no-store',
+        });
         if (!res.ok) throw new Error('No se pudo consultar el puente Wi-Fi.');
         const data = (await res.json()) as LanBridgeInfo;
         if (!cancelled) {
@@ -296,28 +318,109 @@ export function PhoneConnectionPanel() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [lanBridgeUrl]);
+  }, [lanBridgeUrl, reloadTick]);
 
+  const interfaceOptions: LanBridgeInterface[] = lanInfo
+    ? lanInfo.interfaces && lanInfo.interfaces.length > 0
+      ? lanInfo.interfaces
+      : lanInfo.ips.map((ip, index) => ({
+          ip,
+          name: 'Red local',
+          virtual: false,
+          recommended: index === 0,
+        }))
+    : [];
+
+  const safeIdx =
+    interfaceOptions.length > 0
+      ? Math.min(selectedUrlIdx, interfaceOptions.length - 1)
+      : 0;
+  const selectedInterfaceIp = interfaceOptions[safeIdx]?.ip || '';
+  const trimmedCustomIp = customIp.trim();
+  const isCustomIpValid = /^\d{1,3}(\.\d{1,3}){3}$/.test(trimmedCustomIp);
+  const effectiveIp =
+    useCustomIp && isCustomIpValid ? trimmedCustomIp : selectedInterfaceIp;
+
+  const activeHttpUrl =
+    lanInfo && effectiveIp
+      ? `http://${effectiveIp}:${lanInfo.port}/?mobile-scanner=1&pin=${lanInfo.pin}`
+      : '';
+  const activeHttpsUrl =
+    lanInfo && effectiveIp
+      ? `https://${effectiveIp}:${lanInfo.httpsPort}/?mobile-scanner=1&pin=${lanInfo.pin}`
+      : '';
   const activeWifiUrl =
-    lanInfo && lanInfo.urls.length > 0
-      ? lanInfo.urls[Math.min(selectedUrlIdx, lanInfo.urls.length - 1)]
-      : '';
+    connectionProtocol === 'http' ? activeHttpUrl : activeHttpsUrl;
   const activeCaUrl =
-    lanInfo && lanInfo.caUrls.length > 0
-      ? lanInfo.caUrls[Math.min(selectedUrlIdx, lanInfo.caUrls.length - 1)]
+    lanInfo && effectiveIp
+      ? `http://${effectiveIp}:${lanInfo.port}/api/lan-scanner/ca.cer`
       : '';
+
+  const isWindows =
+    lanInfo?.platform === 'win32' ||
+    (typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent));
+
+  const handleOpenFirewall = async () => {
+    if (!lanBridgeUrl || firewallBusy) return;
+    setFirewallBusy(true);
+    setFirewallFeedback(null);
+    try {
+      const res = await fetch(`${lanBridgeUrl}/api/lan-scanner/open-firewall`, {
+        method: 'POST',
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.ok) {
+        setFirewallFeedback({
+          ok: false,
+          message:
+            data.error ||
+            'No se pudo agregar la regla del Firewall de Windows.',
+        });
+      } else {
+        setFirewallFeedback({
+          ok: true,
+          message:
+            data.message ||
+            'Puertos abiertos en Firewall de Windows correctamente.',
+        });
+      }
+    } catch {
+      setFirewallFeedback({
+        ok: false,
+        message: 'No se pudo comunicar con el servicio local de Firewall.',
+      });
+    } finally {
+      setFirewallBusy(false);
+    }
+  };
 
   return (
     <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-4">
       {!lanBridgeUrl || lanError ? (
-        <div className="space-y-2 text-xs text-slate-600">
-          <div className="flex items-center gap-2 text-slate-900 font-semibold">
-            <Smartphone className="w-4 h-4 text-blue-700" />
-            <span>Conectar Teléfono como Escáner Inalámbrico (Wi-Fi)</span>
+        <div className="space-y-2.5 text-xs text-slate-600">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-slate-900 font-semibold">
+              <Smartphone className="w-4 h-4 text-blue-700" />
+              <span>Conectar Teléfono como Escáner Inalámbrico (Wi-Fi)</span>
+            </div>
+            {lanBridgeUrl && (
+              <button
+                type="button"
+                onClick={() => setReloadTick((t) => t + 1)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-md"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Reintentar
+              </button>
+            )}
           </div>
           <p>
             {lanError ||
-              'Ejecuta TECNOVA como aplicación de escritorio (.exe) para iniciar el puente y mostrar los códigos QR.'}
+              'Ejecuta TECNOVA como aplicación de escritorio instalada en Windows (.exe) para iniciar el puente Wi-Fi local y conectar tu teléfono por IP.'}
           </p>
         </div>
       ) : lanLoading && !lanInfo ? (
@@ -326,23 +429,124 @@ export function PhoneConnectionPanel() {
         </div>
       ) : lanInfo ? (
         <div className="space-y-4">
-          {lanInfo.ips.length > 1 && (
-            <label className="block max-w-sm space-y-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1 p-1 bg-slate-200/75 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setConnectionProtocol('http')}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                  connectionProtocol === 'http'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Conexión Directa (HTTP · Sin certificado)
+              </button>
+              <button
+                type="button"
+                onClick={() => setConnectionProtocol('https')}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                  connectionProtocol === 'https'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Video Continuo (HTTPS)
+              </button>
+            </div>
+            <span className="text-[11px] font-mono text-slate-500">
+              Puertos {lanInfo.port} / {lanInfo.httpsPort}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+            <label className="block space-y-1">
               <span className="text-xs font-medium text-slate-700">
-                Red / dirección de conexión
+                Red / dirección IP de esta PC
               </span>
               <select
-                value={selectedUrlIdx}
-                onChange={(e) => setSelectedUrlIdx(Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                value={useCustomIp ? '__custom__' : String(safeIdx)}
+                onChange={(e) => {
+                  if (e.target.value === '__custom__') {
+                    setUseCustomIp(true);
+                  } else {
+                    setUseCustomIp(false);
+                    setSelectedUrlIdx(Number(e.target.value));
+                  }
+                }}
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800"
               >
-                {lanInfo.ips.map((ip, index) => (
-                  <option key={ip} value={index}>
-                    {ip}
+                {interfaceOptions.map((iface, index) => (
+                  <option key={iface.ip} value={index}>
+                    {iface.ip} — {iface.name}
+                    {iface.recommended
+                      ? ' (Recomendada)'
+                      : iface.virtual
+                        ? ' (Virtual / VPN)'
+                        : ''}
                   </option>
                 ))}
+                <option value="__custom__">Escribir otra IP manualmente...</option>
               </select>
             </label>
+
+            {useCustomIp ? (
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-slate-700">
+                  IP manual de la PC (ej. de ipconfig)
+                </span>
+                <input
+                  type="text"
+                  value={customIp}
+                  onChange={(e) => setCustomIp(e.target.value)}
+                  placeholder="Ej: 192.168.1.45"
+                  className="w-full px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-700"
+                />
+              </label>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                {isWindows && (
+                  <button
+                    type="button"
+                    disabled={firewallBusy}
+                    onClick={() => void handleOpenFirewall()}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-800 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    {firewallBusy
+                      ? 'Abriendo puertos...'
+                      : 'Permitir en Firewall'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setReloadTick((t) => t + 1)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors"
+                  title="Actualizar direcciones IP detectadas"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Actualizar IP
+                </button>
+              </div>
+            )}
+          </div>
+
+          {useCustomIp && trimmedCustomIp && !isCustomIpValid && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+              Ingresa una IPv4 válida (ejemplo: 192.168.1.45).
+            </p>
+          )}
+
+          {firewallFeedback && (
+            <div
+              className={`text-xs px-3 py-2 rounded-lg border ${
+                firewallFeedback.ok
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}
+            >
+              {firewallFeedback.message}
+            </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-4 items-center">
@@ -350,7 +554,7 @@ export function PhoneConnectionPanel() {
               {activeWifiUrl ? (
                 <QrCodeImg value={activeWifiUrl} size={156} />
               ) : (
-                <div className="w-[156px] h-[156px] flex items-center justify-center text-xs text-slate-400 text-center">
+                <div className="w-[156px] h-[156px] flex items-center justify-center text-xs text-slate-400 text-center px-2">
                   Sin red Wi-Fi detectada
                 </div>
               )}
@@ -358,7 +562,9 @@ export function PhoneConnectionPanel() {
                 PIN: {lanInfo.pin}
               </span>
               <span className="text-[10px] text-slate-500 text-center">
-                QR de TECNOVA
+                {connectionProtocol === 'http'
+                  ? `QR Directo HTTP :${lanInfo.port}`
+                  : `QR HTTPS :${lanInfo.httpsPort}`}
               </span>
             </div>
 
@@ -386,14 +592,23 @@ export function PhoneConnectionPanel() {
                 </span>
               </div>
 
-              <ol className="text-xs text-slate-600 space-y-1 list-decimal list-inside">
-                <li>Conecta la PC y el teléfono a la misma red Wi-Fi.</li>
-                <li>Instala y confía el certificado CA antes de abrir el QR de TECNOVA.</li>
-                <li>Escanea el QR de TECNOVA y permite el uso de la cámara.</li>
-                <li>Los códigos leídos en el teléfono se enviarán a la PC.</li>
-              </ol>
+              {connectionProtocol === 'http' ? (
+                <ol className="text-xs text-slate-600 space-y-1 list-decimal list-inside">
+                  <li>Conecta la PC y el teléfono a la misma red Wi-Fi (sin datos móviles).</li>
+                  <li>Escanea este QR o abre el enlace HTTP en Chrome / Safari del teléfono.</li>
+                  <li>Toca el botón de cámara del teléfono para leer códigos al instante.</li>
+                  <li>No requiere instalar certificados; evita seleccionar redes Virtual / VPN arriba.</li>
+                </ol>
+              ) : (
+                <ol className="text-xs text-slate-600 space-y-1 list-decimal list-inside">
+                  <li>Conecta la PC y el teléfono a la misma red Wi-Fi.</li>
+                  <li>Instala y confía el certificado CA antes de abrir el QR HTTPS.</li>
+                  <li>Escanea el QR principal y concede permiso de cámara al navegador.</li>
+                  <li>Si el certificado falla en tu teléfono, cambia arriba a Conexión Directa (HTTP).</li>
+                </ol>
+              )}
 
-              {activeCaUrl && (
+              {connectionProtocol === 'https' && activeCaUrl && (
                 <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <div className="shrink-0 rounded-md border border-amber-200 bg-white p-1.5">
                     <QrCodeImg value={activeCaUrl} size={88} />
@@ -403,7 +618,7 @@ export function PhoneConnectionPanel() {
                       Certificado CA para HTTPS local
                     </p>
                     <p className="text-[10px] leading-relaxed text-amber-900">
-                      Escanea para descargarlo. Instálalo como CA y confía solo si estás en tu propia PC/red.
+                      Escanea para descargarlo, instálalo como CA en Ajustes de Seguridad y confía solo en tu PC.
                     </p>
                     <p className="text-[9px] font-mono text-amber-950 break-all">
                       Huella SHA-256: {lanInfo.caFingerprint}
@@ -430,7 +645,7 @@ export function PhoneConnectionPanel() {
                     type="text"
                     readOnly
                     value={activeWifiUrl}
-                    aria-label="Enlace HTTPS del escáner del teléfono"
+                    aria-label="Enlace del escáner del teléfono"
                     className="flex-1 min-w-0 px-2.5 py-1.5 text-[11px] font-mono bg-white border border-slate-200 rounded-lg text-slate-600"
                   />
                   <button
@@ -447,6 +662,11 @@ export function PhoneConnectionPanel() {
                   </button>
                 </div>
               )}
+
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                ¿La IP sigue sin responder? Revisa que el Wi-Fi de Windows esté en red Privada, pulsa{' '}
+                <strong className="font-semibold text-slate-700">Permitir en Firewall</strong> y comprueba en la lista que no hayas elegido una IP Virtual / VPN.
+              </p>
             </div>
           </div>
         </div>
@@ -976,14 +1196,6 @@ export function ScannerModal({
   const [errorFeedback, setErrorFeedback] = useState<string | null>(null);
   const [posAddedCount, setPosAddedCount] = useState(0);
   const [busy, setBusy] = useState(false);
-
-  const [lanBridgeUrl] = useState<string | null>(() => getLanBridgeBaseUrl());
-  const [lanInfo, setLanInfo] = useState<LanBridgeInfo | null>(null);
-  const [lanLoading, setLanLoading] = useState(false);
-  const [lanError, setLanError] = useState<string | null>(null);
-  const [selectedUrlIdx, setSelectedUrlIdx] = useState(0);
-  const [copiedUrl, setCopiedUrl] = useState(false);
-  const [copiedCaUrl, setCopiedCaUrl] = useState(false);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);

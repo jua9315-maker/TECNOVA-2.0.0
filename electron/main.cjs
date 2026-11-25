@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { execFile } = require('child_process');
 const selfsigned = require('selfsigned');
 
 const APP_PORT = 41731;
@@ -118,26 +119,78 @@ function scheduleUpdateChecks() {
   setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
 }
 
-function getLanIpv4Addresses() {
+function isPrivate172(addr) {
+  const parts = addr.split('.');
+  if (parts.length !== 4) return false;
+  const second = Number(parts[1]);
+  return parts[0] === '172' && second >= 16 && second <= 31;
+}
+
+function isVirtualOrVpnAdapter(name, addr) {
+  if (
+    /virtual|vmware|vbox|virtualbox|hyper-v|vethernet|docker|wsl|tailscale|zerotier|hamachi|radmin|wireguard|nordlynx|proton|openvpn|\btun\b|\btap\b|wintun|npcap|bluetooth|loopback|local area connection\*/i.test(
+      name
+    )
+  ) {
+    return true;
+  }
+  if (addr.startsWith('192.168.56.') || addr.startsWith('192.168.137.')) {
+    return true;
+  }
+  if (addr.startsWith('25.') || addr.startsWith('26.')) {
+    return true;
+  }
+  if (addr.startsWith('100.')) {
+    const second = Number(addr.split('.')[1]);
+    if (second >= 64 && second <= 127) return true;
+  }
+  return false;
+}
+
+function getLanInterfaceList() {
   const interfaces = os.networkInterfaces();
+  const seenIps = new Set();
   const candidates = [];
+
   for (const [name, list] of Object.entries(interfaces)) {
     if (!Array.isArray(list)) continue;
     for (const item of list) {
       if (!item || item.family !== 'IPv4' || item.internal) continue;
       const addr = item.address;
-      if (!addr || addr.startsWith('169.254.')) continue;
+      if (!addr || addr.startsWith('169.254.') || addr === '0.0.0.0') continue;
+
+      const virtual = isVirtualOrVpnAdapter(name, addr);
       let score = 10;
       if (addr.startsWith('192.168.')) score = 100;
-      else if (addr.startsWith('10.')) score = 80;
-      else if (addr.startsWith('172.')) score = 50;
-      if (/wi-fi|wifi|wlan|ethernet/i.test(name)) score += 20;
-      if (/virtual|vmware|vbox|hyper-v|vethernet|docker|wsl/i.test(name)) score -= 60;
-      candidates.push({ address: addr, name, score });
+      else if (addr.startsWith('10.')) score = 85;
+      else if (isPrivate172(addr)) score = 70;
+
+      if (/wi-?fi|wlan|wireless|inal[aá]mbric/i.test(name)) score += 30;
+      else if (/ethernet|lan|red/i.test(name)) score += 20;
+
+      if (virtual) score -= 120;
+
+      candidates.push({ ip: addr, name, virtual, score });
     }
   }
+
   candidates.sort((a, b) => b.score - a.score);
-  return Array.from(new Set(candidates.map((c) => c.address)));
+  const unique = [];
+  for (const candidate of candidates) {
+    if (seenIps.has(candidate.ip)) continue;
+    seenIps.add(candidate.ip);
+    unique.push({
+      ip: candidate.ip,
+      name: candidate.name,
+      virtual: candidate.virtual,
+      recommended: !candidate.virtual && unique.every((item) => item.virtual),
+    });
+  }
+  return unique;
+}
+
+function getLanIpv4Addresses() {
+  return getLanInterfaceList().map((item) => item.ip);
 }
 
 function sendJson(res, statusCode, payload) {
@@ -240,6 +293,7 @@ function serveCaCertificate(res) {
   const certificate = new crypto.X509Certificate(caCertificate);
   res.writeHead(200, {
     'Content-Type': 'application/pkix-cert',
+    'Content-Length': certificate.raw.length,
     'Content-Disposition': 'attachment; filename="tecnova-local-scanner-ca.cer"',
     'Cache-Control': 'no-store',
     'Access-Control-Allow-Origin': '*',
@@ -343,20 +397,89 @@ function createLanRequestHandler() {
         return;
       }
 
-      if (pathname === '/api/lan-scanner/info' && req.method === 'GET') {
+      const isAllowedLocalOrigin = () => {
         const remoteAddress = req.socket.remoteAddress;
         const origin = req.headers.origin;
         const isLoopback =
           remoteAddress === '127.0.0.1' ||
           remoteAddress === '::1' ||
           remoteAddress === '::ffff:127.0.0.1';
-        if (!isLoopback || origin !== `http://127.0.0.1:${activeAppPort}`) {
+        if (!isLoopback) return false;
+        if (!origin) return true;
+        return (
+          origin === `http://127.0.0.1:${activeAppPort}` ||
+          origin === `http://localhost:${activeAppPort}`
+        );
+      };
+
+      if (pathname === '/api/lan-scanner/ping' && req.method === 'GET') {
+        sendJson(res, 200, {
+          ok: true,
+          appName: 'TECNOVA',
+          port: activeLanPort || LAN_BRIDGE_PORT,
+          httpsPort: activeLanHttpsPort || LAN_HTTPS_PORT,
+        });
+        return;
+      }
+
+      if (pathname === '/api/lan-scanner/open-firewall' && req.method === 'POST') {
+        if (!isAllowedLocalOrigin()) {
           sendJson(res, 403, { ok: false, error: 'Acceso local requerido' });
           return;
         }
+        if (process.platform !== 'win32') {
+          sendJson(res, 200, {
+            ok: true,
+            message: 'Solo es necesario abrir puertos en Windows Firewall.',
+          });
+          return;
+        }
+        const httpPort = Number(activeLanPort || LAN_BRIDGE_PORT);
+        const httpsPort = Number(activeLanHttpsPort || LAN_HTTPS_PORT);
+        const portsArg = `${httpPort},${httpsPort}`;
+        const netshCommands = [
+          `netsh advfirewall firewall delete rule name="TECNOVA Escaner Wi-Fi"`,
+          `netsh advfirewall firewall add rule name="TECNOVA Escaner Wi-Fi" dir=in action=allow protocol=TCP localport=${portsArg} profile=any`,
+        ].join(' & ');
+        const escapedArgs = `/c ${netshCommands}`.replace(/'/g, "''");
+        execFile(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-Command',
+            `Start-Process -FilePath 'cmd.exe' -ArgumentList '${escapedArgs}' -Verb RunAs -WindowStyle Hidden -Wait`,
+          ],
+          { windowsHide: true },
+          (err) => {
+            if (err) {
+              sendJson(res, 500, {
+                ok: false,
+                error:
+                  'No se concedió permiso de administrador para abrir los puertos en Firewall de Windows.',
+              });
+              return;
+            }
+            sendJson(res, 200, {
+              ok: true,
+              message: `Puertos TCP ${portsArg} permitidos en el Firewall de Windows.`,
+            });
+          }
+        );
+        return;
+      }
+
+      if (pathname === '/api/lan-scanner/info' && req.method === 'GET') {
+        if (!isAllowedLocalOrigin()) {
+          sendJson(res, 403, { ok: false, error: 'Acceso local requerido' });
+          return;
+        }
+        const interfaces = getLanInterfaceList();
         const ips = await refreshServerCertificateForLanIps();
         const port = activeLanPort || LAN_BRIDGE_PORT;
         const httpsPort = activeLanHttpsPort || LAN_HTTPS_PORT;
+        const httpUrls = ips.map(
+          (ip) => `http://${ip}:${port}/?mobile-scanner=1&pin=${SESSION_PIN}`
+        );
         const urls = ips.map(
           (ip) => `https://${ip}:${httpsPort}/?mobile-scanner=1&pin=${SESSION_PIN}`
         );
@@ -366,10 +489,13 @@ function createLanRequestHandler() {
         const phoneConnected = Date.now() - lastPhonePingAt < 25000;
         sendJson(res, 200, {
           ok: true,
+          platform: process.platform,
           port,
           httpsPort,
           pin: SESSION_PIN,
           ips,
+          interfaces,
+          httpUrls,
           urls,
           caUrls,
           caFingerprint,
