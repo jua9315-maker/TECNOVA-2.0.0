@@ -667,7 +667,6 @@ export interface VisualCustomizationSettings {
   patches: Record<string, VisualElementPatch>;
   navOrder: NavTab[];
   navLabels: Partial<Record<NavTab, string>>;
-  editorOpacityPercent: number;
   updatedAtMs?: number;
 }
 
@@ -685,7 +684,6 @@ export const DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS: VisualCustomizationSettings 
     'settings',
   ],
   navLabels: {},
-  editorOpacityPercent: 90,
 };
 
 export type InstalledDisplayMode = 'standalone' | 'minimal-ui' | 'fullscreen';

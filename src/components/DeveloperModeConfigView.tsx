@@ -298,10 +298,6 @@ export function DeveloperModeConfigView({
               ? parsed.navOrder
               : [...DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.navOrder],
           navLabels: parsed.navLabels || {},
-          editorOpacityPercent:
-            typeof parsed.editorOpacityPercent === 'number'
-              ? parsed.editorOpacityPercent
-              : DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.editorOpacityPercent,
         },
         'Diseño visual importado y aplicado correctamente.'
       );
@@ -850,72 +846,6 @@ export function DeveloperModeConfigView({
 
         {/* Right: Sidebar Menu Order & Visual Patches Manager */}
         <div className="xl:col-span-6 space-y-6">
-          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Sliders className="w-4 h-4 text-blue-700" />
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Ventana del Editor Visual
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Ajusta la transparencia de la barra y los paneles del editor.
-                </p>
-              </div>
-            </div>
-            <label className="block space-y-2">
-              <span className="flex items-center justify-between gap-3 text-xs font-medium text-slate-700">
-                <span>Transparencia</span>
-                <span className="font-mono text-blue-700">
-                  {Math.max(
-                    35,
-                    Math.min(
-                      100,
-                      visualDraft.editorOpacityPercent ??
-                        DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.editorOpacityPercent
-                    )
-                  )}
-                  %
-                </span>
-              </span>
-              <input
-                type="range"
-                min={35}
-                max={100}
-                step={1}
-                value={Math.max(
-                  35,
-                  Math.min(
-                    100,
-                    visualDraft.editorOpacityPercent ??
-                      DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.editorOpacityPercent
-                  )
-                )}
-                onChange={(e) =>
-                  setVisualDraft({
-                    ...visualDraft,
-                    editorOpacityPercent: Number(e.target.value),
-                  })
-                }
-                aria-label="Transparencia de la ventana del Editor Visual"
-                className="w-full accent-blue-700 cursor-pointer"
-              />
-            </label>
-            <button
-              type="button"
-              disabled={savingVisual}
-              onClick={() =>
-                void persistVisualDraft(
-                  visualDraft,
-                  'Transparencia de la ventana del Editor Visual guardada.'
-                )
-              }
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:bg-slate-400 cursor-pointer"
-            >
-              <Save className="w-3.5 h-3.5" />
-              {savingVisual ? 'Guardando...' : 'Guardar transparencia'}
-            </button>
-          </section>
-
           {/* Sidebar Menu Customization */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">

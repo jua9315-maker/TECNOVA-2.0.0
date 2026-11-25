@@ -1140,11 +1140,6 @@ export async function getVisualCustomizationSettings(): Promise<VisualCustomizat
     patches: row.value.patches ? { ...row.value.patches } : {},
     navOrder: mergedOrder,
     navLabels: row.value.navLabels ? { ...row.value.navLabels } : {},
-    editorOpacityPercent:
-      typeof row.value.editorOpacityPercent === 'number' &&
-      Number.isFinite(row.value.editorOpacityPercent)
-        ? Math.max(35, Math.min(100, row.value.editorOpacityPercent))
-        : DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.editorOpacityPercent,
   };
 }
 
@@ -1175,11 +1170,6 @@ export async function saveVisualCustomizationSettings(
         ? settings.navOrder
         : [...DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.navOrder],
     navLabels: settings.navLabels || {},
-    editorOpacityPercent:
-      typeof settings.editorOpacityPercent === 'number' &&
-      Number.isFinite(settings.editorOpacityPercent)
-        ? Math.max(35, Math.min(100, settings.editorOpacityPercent))
-        : DEFAULT_VISUAL_CUSTOMIZATION_SETTINGS.editorOpacityPercent,
     updatedAtMs: Date.now(),
   };
   await putOneRaw('meta', {
