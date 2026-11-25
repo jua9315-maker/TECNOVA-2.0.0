@@ -1,0 +1,12 @@
+{
+  "projectId": "biblioteca-inatec",
+  "appId": "1:429214212010:web:b4deba86a10a73b4b995d3",
+  "apiKey": "AIzaSyAHOFWCD9Hm5HNW-6IMCgTqBsGeWOrCvBk",
+  "authDomain": "biblioteca-inatec.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-f4b8d6f5-ec5f-4a1d-9be1-2461cca6ce7f",
+  "storageBucket": "biblioteca-inatec.firebasestorage.app",
+  "messagingSenderId": "429214212010",
+  "measurementId": "",
+  "oAuthClientId": "429214212010-d68vv5k84eug9f816i90mafoqvq6pv11.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
+}

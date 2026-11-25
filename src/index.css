@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-geometric: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-serif-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  --app-bg: #f8fafc;
+  --app-font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --app-surface-opacity: 0.78;
+}
+
+@media screen {
+  :where([class~="bg-white"]) {
+    background-color: rgb(255 255 255 / var(--app-surface-opacity)) !important;
+    backdrop-filter: blur(10px);
+  }
+
+  :where([class~="bg-slate-50"]) {
+    background-color: rgb(248 250 252 / var(--app-surface-opacity)) !important;
+    backdrop-filter: blur(10px);
+  }
+
+  :where([class~="bg-slate-100"]) {
+    background-color: rgb(241 245 249 / var(--app-surface-opacity)) !important;
+    backdrop-filter: blur(10px);
+  }
+
+  :where([class~="bg-slate-200"]) {
+    background-color: rgb(226 232 240 / var(--app-surface-opacity)) !important;
+    backdrop-filter: blur(10px);
+  }
+
+  :where([class~="bg-slate-900"]) {
+    background-color: rgb(15 23 42 / var(--app-surface-opacity)) !important;
+    backdrop-filter: blur(10px);
+  }
+
+  :where([class~="bg-slate-950"]) {
+    background-color: rgb(2 6 23 / var(--app-surface-opacity)) !important;
+    backdrop-filter: blur(10px);
+  }
+}
+
+@layer base {
+  html {
+    font-family: var(--app-font-sans);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--app-bg);
+    color: #0f172a;
+    overflow-x: hidden;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body.printing-receipt #app-shell {
+    display: none !important;
+  }
+  body.printing-receipt #receipt-print-portal {
+    position: static !important;
+    inset: auto !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+  body {
+    background: #ffffff !important;
+  }
+}

@@ -1,0 +1,708 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated store member profile and RBAC role assignment.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the user."
+        },
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "description": "Unique login username for the team member."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160,
+          "description": "Internal auth email or verified Google email."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Full display name of the staff member or administrator."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "staff"],
+          "description": "Application access role: admin or staff."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether the account is currently active."
+        },
+        "storeId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Assigned store identifier."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["uid", "username", "email", "displayName", "role", "active", "storeId", "createdAt", "updatedAt"]
+    },
+    "TeamMember": {
+      "title": "TeamMember",
+      "description": "Non-PII team directory entry keyed by UID for username-based team & role administration.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9._-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "staff"]
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "storeId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "username", "displayName", "role", "active", "storeId", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Authoritative administrator registry keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Mobile store inventory item with barcode, QR data, pricing, and warranty coverage.",
+      "type": "object",
+      "properties": {
+        "sku": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "barcode": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "qrCodeData": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "brand": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Smartphones",
+            "Accesorios",
+            "Cargadores y Cables",
+            "Audio",
+            "Pantallas y Repuestos",
+            "Protección"
+          ]
+        },
+        "condition": {
+          "type": "string",
+          "enum": ["Nuevo", "Seminuevo", "Repuesto"]
+        },
+        "storage": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "color": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "costPrice": {
+          "type": "number"
+        },
+        "salePrice": {
+          "type": "number"
+        },
+        "stock": {
+          "type": "number"
+        },
+        "minStock": {
+          "type": "number"
+        },
+        "warrantyMonths": {
+          "type": "number"
+        },
+        "imeiRequired": {
+          "type": "boolean"
+        },
+        "supplier": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "storeId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedBy": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "sku",
+        "barcode",
+        "qrCodeData",
+        "name",
+        "brand",
+        "model",
+        "category",
+        "condition",
+        "storage",
+        "color",
+        "costPrice",
+        "salePrice",
+        "stock",
+        "minStock",
+        "warrantyMonths",
+        "imeiRequired",
+        "supplier",
+        "location",
+        "description",
+        "imageUrl",
+        "active",
+        "storeId",
+        "updatedBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Point-of-sale transaction record for daily automated reporting.",
+      "type": "object",
+      "properties": {
+        "saleNumber": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dateKey": {
+          "type": "string",
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "customerPhone": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["Efectivo", "Tarjeta", "Transferencia", "Mixto"]
+        },
+        "items": {
+          "type": "array",
+          "description": "Bounded list of sold line items (1 to 30 items)."
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "discount": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        },
+        "totalCost": {
+          "type": "number"
+        },
+        "profit": {
+          "type": "number"
+        },
+        "sellerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sellerName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Completada", "Anulada"]
+        },
+        "storeId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "saleNumber",
+        "dateKey",
+        "customerName",
+        "customerPhone",
+        "paymentMethod",
+        "items",
+        "subtotal",
+        "discount",
+        "total",
+        "totalCost",
+        "profit",
+        "sellerUid",
+        "sellerName",
+        "status",
+        "storeId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Warranty": {
+      "title": "Warranty",
+      "description": "Customer product warranty certificate linked to IMEI and purchase.",
+      "type": "object",
+      "properties": {
+        "warrantyCode": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "saleId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "productId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "productName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "imei": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "customerPhone": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "purchaseDate": {
+          "type": "string",
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "expiresDate": {
+          "type": "string",
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "warrantyMonths": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Vigente", "En Revisión", "Reclamada", "Vencida"]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "storeId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "warrantyCode",
+        "saleId",
+        "productId",
+        "productName",
+        "imei",
+        "customerName",
+        "customerPhone",
+        "purchaseDate",
+        "expiresDate",
+        "warrantyMonths",
+        "status",
+        "notes",
+        "createdBy",
+        "storeId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RepairTicket": {
+      "title": "RepairTicket",
+      "description": "Technical service order and repair history for customer mobile devices.",
+      "type": "object",
+      "properties": {
+        "ticketCode": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "customerPhone": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "deviceBrand": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "deviceModel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "imei": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "issueDescription": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 500
+        },
+        "diagnosis": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "partsUsed": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "estimatedCost": {
+          "type": "number"
+        },
+        "finalCost": {
+          "type": "number"
+        },
+        "warrantyCovered": {
+          "type": "boolean"
+        },
+        "warrantyId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Recibido",
+            "En Diagnóstico",
+            "Esperando Repuesto",
+            "En Reparación",
+            "Listo para Entrega",
+            "Entregado",
+            "Cancelado"
+          ]
+        },
+        "technicianUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "technicianName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "historyLog": {
+          "type": "array",
+          "description": "Bounded audit trail of repair status changes (1 to 30 entries)."
+        },
+        "storeId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ticketCode",
+        "customerName",
+        "customerPhone",
+        "deviceBrand",
+        "deviceModel",
+        "imei",
+        "issueDescription",
+        "diagnosis",
+        "partsUsed",
+        "estimatedCost",
+        "finalCost",
+        "warrantyCovered",
+        "warrantyId",
+        "status",
+        "technicianUid",
+        "technicianName",
+        "historyLog",
+        "storeId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DailyReport": {
+      "title": "DailyReport",
+      "description": "Automated daily sales closure and revenue summary keyed by YYYY-MM-DD.",
+      "type": "object",
+      "properties": {
+        "dateKey": {
+          "type": "string",
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "totalSalesCount": {
+          "type": "number"
+        },
+        "totalRevenue": {
+          "type": "number"
+        },
+        "totalCost": {
+          "type": "number"
+        },
+        "grossProfit": {
+          "type": "number"
+        },
+        "repairsRevenue": {
+          "type": "number"
+        },
+        "cashTotal": {
+          "type": "number"
+        },
+        "cardTotal": {
+          "type": "number"
+        },
+        "transferTotal": {
+          "type": "number"
+        },
+        "topProduct": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "generatedByUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "generatedByName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Abierto", "Cerrado"]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "storeId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "dateKey",
+        "totalSalesCount",
+        "totalRevenue",
+        "totalCost",
+        "grossProfit",
+        "repairsRevenue",
+        "cashTotal",
+        "cardTotal",
+        "transferTotal",
+        "topProduct",
+        "generatedByUid",
+        "generatedByName",
+        "status",
+        "notes",
+        "storeId",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles and RBAC role assignments."
+    },
+    "/teamMembers/{userId}": {
+      "schema": { "$ref": "#/entities/TeamMember" },
+      "description": "Non-PII team member directory keyed by UID for username-based team administration."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Authoritative admin UID lookup records."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Cell phone store inventory items with barcode and QR metadata."
+    },
+    "/sales/{saleId}": {
+      "schema": { "$ref": "#/entities/Sale" },
+      "description": "Real-time POS sales records."
+    },
+    "/warranties/{warrantyId}": {
+      "schema": { "$ref": "#/entities/Warranty" },
+      "description": "Customer product warranty records."
+    },
+    "/repairs/{repairId}": {
+      "schema": { "$ref": "#/entities/RepairTicket" },
+      "description": "Technical service repair orders and diagnostic history."
+    },
+    "/dailyReports/{dateKey}": {
+      "schema": { "$ref": "#/entities/DailyReport" },
+      "description": "Automated daily sales closure reports."
+    }
+  }
+}

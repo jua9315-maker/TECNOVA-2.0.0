@@ -1,0 +1,6 @@
+{
+  "name": "TECNOVA — Inventario y Servicio Técnico",
+  "description": "Plataforma en tiempo real para gestión de inventario móvil con códigos de barra y QR, punto de venta, reportes diarios automáticos, garantías y reparaciones técnicas.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

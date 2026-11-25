@@ -1,0 +1,479 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net (Default-Deny Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Hardened Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isUsernamePasswordAccount() {
+      return isSignedIn() &&
+        request.auth.token.firebase.sign_in_provider == 'password' &&
+        request.auth.token.email is string &&
+        request.auth.token.email.matches('^[a-zA-Z0-9._-]+@nexocell\\.local$');
+    }
+
+    function isAuthenticatedAccount() {
+      return isVerifiedUser() || isUsernamePasswordAccount();
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'jua9315@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isAuthenticatedAccount() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticatedAccount() && request.auth.uid == userId;
+    }
+
+    function isActiveStoreMember() {
+      return isAdmin() || (
+        isAuthenticatedAccount() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true
+      );
+    }
+
+    // 2. Entity Validation Helpers (Anti-Update-Gap)
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'username', 'email', 'displayName', 'role', 'active', 'storeId', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'username', 'email', 'displayName', 'role', 'active', 'storeId', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        data.username is string && data.username.size() >= 3 && data.username.size() <= 40 && data.username.matches('^[a-zA-Z0-9._-]+$') &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.role in ['admin', 'staff'] &&
+        data.active is bool &&
+        data.storeId == 'nexocell-main' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTeamMember(data) {
+      return data.keys().hasAll(['uid', 'username', 'displayName', 'role', 'active', 'storeId', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'username', 'displayName', 'role', 'active', 'storeId', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        data.username is string && data.username.size() >= 3 && data.username.size() <= 40 && data.username.matches('^[a-zA-Z0-9._-]+$') &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.role in ['admin', 'staff'] &&
+        data.active is bool &&
+        data.storeId == 'nexocell-main' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'createdAt']) &&
+        isValidId(data.uid) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+          'sku', 'barcode', 'qrCodeData', 'name', 'brand', 'model', 'category',
+          'condition', 'storage', 'color', 'costPrice', 'salePrice', 'stock',
+          'minStock', 'warrantyMonths', 'imeiRequired', 'supplier', 'location',
+          'description', 'imageUrl', 'active', 'storeId', 'updatedBy', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'sku', 'barcode', 'qrCodeData', 'name', 'brand', 'model', 'category',
+          'condition', 'storage', 'color', 'costPrice', 'salePrice', 'stock',
+          'minStock', 'warrantyMonths', 'imeiRequired', 'supplier', 'location',
+          'description', 'imageUrl', 'active', 'storeId', 'updatedBy', 'createdAt', 'updatedAt'
+        ]) &&
+        data.sku is string && data.sku.size() >= 2 && data.sku.size() <= 40 && data.sku.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.barcode is string && data.barcode.size() >= 3 && data.barcode.size() <= 64 && data.barcode.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.qrCodeData is string && data.qrCodeData.size() >= 3 && data.qrCodeData.size() <= 128 &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+        data.brand is string && data.brand.size() >= 1 && data.brand.size() <= 60 &&
+        data.model is string && data.model.size() >= 1 && data.model.size() <= 80 &&
+        data.category in ['Smartphones', 'Accesorios', 'Cargadores y Cables', 'Audio', 'Pantallas y Repuestos', 'Protección'] &&
+        data.condition in ['Nuevo', 'Seminuevo', 'Repuesto'] &&
+        data.storage is string && data.storage.size() <= 32 &&
+        data.color is string && data.color.size() <= 40 &&
+        data.costPrice is number && data.costPrice >= 0 &&
+        data.salePrice is number && data.salePrice >= 0 &&
+        data.stock is number && data.stock >= 0 &&
+        data.minStock is number && data.minStock >= 0 &&
+        data.warrantyMonths is number && data.warrantyMonths >= 0 && data.warrantyMonths <= 60 &&
+        data.imeiRequired is bool &&
+        data.supplier is string && data.supplier.size() <= 80 &&
+        data.location is string && data.location.size() <= 60 &&
+        data.description is string && data.description.size() <= 500 &&
+        data.imageUrl is string && data.imageUrl.size() <= 300 &&
+        data.active is bool &&
+        data.storeId == 'nexocell-main' &&
+        isValidId(data.updatedBy) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSale(data) {
+      return data.keys().hasAll([
+          'saleNumber', 'dateKey', 'customerName', 'customerPhone', 'paymentMethod',
+          'items', 'subtotal', 'discount', 'total', 'totalCost', 'profit',
+          'sellerUid', 'sellerName', 'status', 'storeId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'saleNumber', 'dateKey', 'customerName', 'customerPhone', 'paymentMethod',
+          'items', 'subtotal', 'discount', 'total', 'totalCost', 'profit',
+          'sellerUid', 'sellerName', 'status', 'storeId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.saleNumber is string && data.saleNumber.size() >= 3 && data.saleNumber.size() <= 40 && data.saleNumber.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.dateKey is string && data.dateKey.size() == 10 && data.dateKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+        data.customerPhone is string && data.customerPhone.size() <= 32 &&
+        data.paymentMethod in ['Efectivo', 'Tarjeta', 'Transferencia', 'Mixto'] &&
+        data.items is list && data.items.size() >= 1 && data.items.size() <= 30 && data.items[0] is map &&
+        data.subtotal is number && data.subtotal >= 0 &&
+        data.discount is number && data.discount >= 0 &&
+        data.total is number && data.total >= 0 &&
+        data.totalCost is number && data.totalCost >= 0 &&
+        data.profit is number &&
+        isValidId(data.sellerUid) &&
+        data.sellerName is string && data.sellerName.size() >= 1 && data.sellerName.size() <= 100 &&
+        data.status in ['Completada', 'Anulada'] &&
+        data.storeId == 'nexocell-main' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidWarranty(data) {
+      return data.keys().hasAll([
+          'warrantyCode', 'saleId', 'productId', 'productName', 'imei',
+          'customerName', 'customerPhone', 'purchaseDate', 'expiresDate',
+          'warrantyMonths', 'status', 'notes', 'createdBy', 'storeId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'warrantyCode', 'saleId', 'productId', 'productName', 'imei',
+          'customerName', 'customerPhone', 'purchaseDate', 'expiresDate',
+          'warrantyMonths', 'status', 'notes', 'createdBy', 'storeId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.warrantyCode is string && data.warrantyCode.size() >= 3 && data.warrantyCode.size() <= 40 && data.warrantyCode.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.saleId is string && data.saleId.size() <= 128 &&
+        data.productId is string && data.productId.size() <= 128 &&
+        data.productName is string && data.productName.size() >= 2 && data.productName.size() <= 120 &&
+        data.imei is string && data.imei.size() <= 40 &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+        data.customerPhone is string && data.customerPhone.size() <= 32 &&
+        data.purchaseDate is string && data.purchaseDate.size() == 10 && data.purchaseDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.expiresDate is string && data.expiresDate.size() == 10 && data.expiresDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.warrantyMonths is number && data.warrantyMonths >= 0 && data.warrantyMonths <= 60 &&
+        data.status in ['Vigente', 'En Revisión', 'Reclamada', 'Vencida'] &&
+        data.notes is string && data.notes.size() <= 500 &&
+        isValidId(data.createdBy) &&
+        data.storeId == 'nexocell-main' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidRepairTicket(data) {
+      return data.keys().hasAll([
+          'ticketCode', 'customerName', 'customerPhone', 'deviceBrand', 'deviceModel',
+          'imei', 'issueDescription', 'diagnosis', 'partsUsed', 'estimatedCost',
+          'finalCost', 'warrantyCovered', 'warrantyId', 'status', 'technicianUid',
+          'technicianName', 'historyLog', 'storeId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ticketCode', 'customerName', 'customerPhone', 'deviceBrand', 'deviceModel',
+          'imei', 'issueDescription', 'diagnosis', 'partsUsed', 'estimatedCost',
+          'finalCost', 'warrantyCovered', 'warrantyId', 'status', 'technicianUid',
+          'technicianName', 'historyLog', 'storeId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.ticketCode is string && data.ticketCode.size() >= 3 && data.ticketCode.size() <= 40 && data.ticketCode.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+        data.customerPhone is string && data.customerPhone.size() <= 32 &&
+        data.deviceBrand is string && data.deviceBrand.size() >= 1 && data.deviceBrand.size() <= 60 &&
+        data.deviceModel is string && data.deviceModel.size() >= 1 && data.deviceModel.size() <= 80 &&
+        data.imei is string && data.imei.size() <= 40 &&
+        data.issueDescription is string && data.issueDescription.size() >= 2 && data.issueDescription.size() <= 500 &&
+        data.diagnosis is string && data.diagnosis.size() <= 500 &&
+        data.partsUsed is string && data.partsUsed.size() <= 300 &&
+        data.estimatedCost is number && data.estimatedCost >= 0 &&
+        data.finalCost is number && data.finalCost >= 0 &&
+        data.warrantyCovered is bool &&
+        data.warrantyId is string && data.warrantyId.size() <= 128 &&
+        data.status in ['Recibido', 'En Diagnóstico', 'Esperando Repuesto', 'En Reparación', 'Listo para Entrega', 'Entregado', 'Cancelado'] &&
+        isValidId(data.technicianUid) &&
+        data.technicianName is string && data.technicianName.size() >= 1 && data.technicianName.size() <= 100 &&
+        data.historyLog is list && data.historyLog.size() >= 1 && data.historyLog.size() <= 30 && data.historyLog[0] is string &&
+        data.storeId == 'nexocell-main' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDailyReport(data) {
+      return data.keys().hasAll([
+          'dateKey', 'totalSalesCount', 'totalRevenue', 'totalCost', 'grossProfit',
+          'repairsRevenue', 'cashTotal', 'cardTotal', 'transferTotal', 'topProduct',
+          'generatedByUid', 'generatedByName', 'status', 'notes', 'storeId',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'dateKey', 'totalSalesCount', 'totalRevenue', 'totalCost', 'grossProfit',
+          'repairsRevenue', 'cashTotal', 'cardTotal', 'transferTotal', 'topProduct',
+          'generatedByUid', 'generatedByName', 'status', 'notes', 'storeId',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.dateKey is string && data.dateKey.size() == 10 && data.dateKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.totalSalesCount is number && data.totalSalesCount >= 0 &&
+        data.totalRevenue is number && data.totalRevenue >= 0 &&
+        data.totalCost is number && data.totalCost >= 0 &&
+        data.grossProfit is number &&
+        data.repairsRevenue is number && data.repairsRevenue >= 0 &&
+        data.cashTotal is number && data.cashTotal >= 0 &&
+        data.cardTotal is number && data.cardTotal >= 0 &&
+        data.transferTotal is number && data.transferTotal >= 0 &&
+        data.topProduct is string && data.topProduct.size() <= 120 &&
+        isValidId(data.generatedByUid) &&
+        data.generatedByName is string && data.generatedByName.size() >= 1 && data.generatedByName.size() <= 100 &&
+        data.status in ['Abierto', 'Cerrado'] &&
+        data.notes is string && data.notes.size() <= 500 &&
+        data.storeId == 'nexocell-main' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // 3. Collection Rules
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin() || (isAuthenticatedAccount() && resource.data.uid == request.auth.uid);
+      allow create: if isValidId(userId) &&
+        isAuthenticatedAccount() &&
+        isValidUserProfile(incoming()) &&
+        incoming().uid == userId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            incoming().uid == request.auth.uid &&
+            (isBootstrappedAdmin() || (incoming().role == 'staff' && incoming().active == true))
+          )
+        );
+      allow update: if isValidId(userId) &&
+        isAuthenticatedAccount() &&
+        isValidUserProfile(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().storeId == existing().storeId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'username', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /teamMembers/{userId} {
+      allow get: if isValidId(userId) && isActiveStoreMember();
+      allow list: if isAuthenticatedAccount() && resource.data.storeId == 'nexocell-main';
+      allow create: if isValidId(userId) &&
+        isAuthenticatedAccount() &&
+        isValidTeamMember(incoming()) &&
+        incoming().uid == userId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            incoming().uid == request.auth.uid &&
+            (isBootstrappedAdmin() || (incoming().role == 'staff' && incoming().active == true))
+          )
+        );
+      allow update: if isValidId(userId) &&
+        isAuthenticatedAccount() &&
+        isValidTeamMember(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().storeId == existing().storeId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'username', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(userId) &&
+        isValidAdminRecord(incoming()) &&
+        incoming().uid == userId &&
+        incoming().createdAt == request.time &&
+        ((isBootstrappedAdmin() && userId == request.auth.uid) || isAdmin());
+      allow update: if false;
+      allow delete: if isValidId(userId) && isAdmin() && userId != request.auth.uid;
+    }
+
+    match /products/{productId} {
+      allow get: if isValidId(productId) && isActiveStoreMember();
+      allow list: if isAuthenticatedAccount() && resource.data.storeId == 'nexocell-main';
+      allow create: if isValidId(productId) &&
+        isActiveStoreMember() &&
+        isValidProduct(incoming()) &&
+        incoming().updatedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(productId) &&
+        isActiveStoreMember() &&
+        isValidProduct(incoming()) &&
+        incoming().storeId == existing().storeId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().updatedBy == request.auth.uid &&
+        (
+          isAdmin() ||
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'stock', 'location', 'name', 'brand', 'model', 'category', 'condition',
+              'storage', 'color', 'salePrice', 'minStock', 'warrantyMonths',
+              'imeiRequired', 'supplier', 'description', 'barcode', 'qrCodeData',
+              'sku', 'imageUrl', 'updatedBy', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    match /sales/{saleId} {
+      allow get: if isValidId(saleId) && isActiveStoreMember();
+      allow list: if isAuthenticatedAccount() && resource.data.storeId == 'nexocell-main';
+      allow create: if isValidId(saleId) &&
+        isActiveStoreMember() &&
+        isValidSale(incoming()) &&
+        incoming().sellerUid == request.auth.uid &&
+        incoming().status == 'Completada' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(saleId) &&
+        isAdmin() &&
+        isValidSale(incoming()) &&
+        incoming().sellerUid == existing().sellerUid &&
+        incoming().storeId == existing().storeId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /warranties/{warrantyId} {
+      allow get: if isValidId(warrantyId) && isActiveStoreMember();
+      allow list: if isAuthenticatedAccount() && resource.data.storeId == 'nexocell-main';
+      allow create: if isValidId(warrantyId) &&
+        isActiveStoreMember() &&
+        isValidWarranty(incoming()) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(warrantyId) &&
+        isActiveStoreMember() &&
+        isValidWarranty(incoming()) &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().storeId == existing().storeId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            existing().status != 'Vencida' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes', 'updatedAt'])
+          )
+        );
+      allow delete: if isValidId(warrantyId) && isAdmin();
+    }
+
+    match /repairs/{repairId} {
+      allow get: if isValidId(repairId) && isActiveStoreMember();
+      allow list: if isAuthenticatedAccount() && resource.data.storeId == 'nexocell-main';
+      allow create: if isValidId(repairId) &&
+        isActiveStoreMember() &&
+        isValidRepairTicket(incoming()) &&
+        incoming().technicianUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(repairId) &&
+        isActiveStoreMember() &&
+        isValidRepairTicket(incoming()) &&
+        incoming().ticketCode == existing().ticketCode &&
+        incoming().storeId == existing().storeId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            !(existing().status in ['Entregado', 'Cancelado']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'diagnosis', 'partsUsed', 'estimatedCost', 'finalCost',
+              'warrantyCovered', 'warrantyId', 'status', 'historyLog', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(repairId) && isAdmin();
+    }
+
+    match /dailyReports/{dateKey} {
+      allow get: if isValidId(dateKey) && isActiveStoreMember();
+      allow list: if isAuthenticatedAccount() && resource.data.storeId == 'nexocell-main';
+      allow create: if isValidId(dateKey) &&
+        isActiveStoreMember() &&
+        isValidDailyReport(incoming()) &&
+        incoming().dateKey == dateKey &&
+        incoming().generatedByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(dateKey) &&
+        isActiveStoreMember() &&
+        isValidDailyReport(incoming()) &&
+        incoming().dateKey == existing().dateKey &&
+        incoming().storeId == existing().storeId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            existing().status != 'Cerrado' &&
+            incoming().generatedByUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'totalSalesCount', 'totalRevenue', 'totalCost', 'grossProfit',
+              'repairsRevenue', 'cashTotal', 'cardTotal', 'transferTotal',
+              'topProduct', 'generatedByUid', 'generatedByName', 'status', 'notes', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(dateKey) && isAdmin();
+    }
+  }
+}
