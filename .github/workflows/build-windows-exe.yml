@@ -29,6 +29,17 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Preparar versión de publicación
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$') {
+            throw "La etiqueta debe tener formato vMAJOR.MINOR.PATCH, por ejemplo v1.0.1."
+          }
+          npm version $Matches[1] --no-git-tag-version --allow-same-version
+
       - name: Verificar archivos del proyecto
         shell: pwsh
         run: |
@@ -39,7 +50,7 @@ jobs:
           Write-Host "Archivos del proyecto encontrados."
 
       - name: Instalar dependencias
-        run: npm install --include=dev
+        run: npm ci --include=dev
 
       - name: Compilar aplicación y generar EXE
         run: npm run electron:build:win
@@ -71,6 +82,9 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
           name: TECNOVA ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
           generate_release_notes: true
-          files: release/*.exe
+          files: |
+            release/TECNOVA-Instalador-*.exe
+            release/latest.yml
+            release/*.blockmap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

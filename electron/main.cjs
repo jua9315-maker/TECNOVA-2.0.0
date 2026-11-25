@@ -1,4 +1,5 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, dialog, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -48,6 +49,74 @@ let caPrivateKey = null;
 let caFingerprint = null;
 let serverCertificate = null;
 let serverCertificateIps = [];
+let updatePromptOpen = false;
+
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
+
+autoUpdater.on('update-available', async (info) => {
+  if (!mainWindow || updatePromptOpen) return;
+  updatePromptOpen = true;
+  try {
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Actualización disponible',
+      message: `Hay una nueva versión de TECNOVA (${info.version}).`,
+      detail:
+        '¿Deseas descargarla ahora? La instalación se completará al reiniciar la aplicación.',
+      buttons: ['Descargar actualización', 'Más tarde'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (result.response === 0) {
+      await autoUpdater.downloadUpdate();
+    }
+  } catch (error) {
+    console.error('No se pudo iniciar la descarga de la actualización:', error);
+  } finally {
+    updatePromptOpen = false;
+  }
+});
+
+autoUpdater.on('update-downloaded', async (info) => {
+  if (!mainWindow || updatePromptOpen) return;
+  updatePromptOpen = true;
+  try {
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Actualización lista',
+      message: `TECNOVA ${info.version} se descargó correctamente.`,
+      detail: 'Reinicia la aplicación para completar la instalación.',
+      buttons: ['Reiniciar ahora', 'Más tarde'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall(false, true);
+    }
+  } catch (error) {
+    console.error('No se pudo completar la instalación de la actualización:', error);
+  } finally {
+    updatePromptOpen = false;
+  }
+});
+
+autoUpdater.on('error', (error) => {
+  console.error('Error al comprobar o descargar actualizaciones:', error);
+});
+
+function scheduleUpdateChecks() {
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return;
+  const checkForUpdates = () => {
+    void autoUpdater.checkForUpdates().catch((error) => {
+      console.error('No se pudo comprobar si hay actualizaciones:', error);
+    });
+  };
+  setTimeout(checkForUpdates, 15000);
+  setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
+}
 
 function getLanIpv4Addresses() {
   const interfaces = os.networkInterfaces();
@@ -519,6 +588,7 @@ if (!gotSingleInstanceLock) {
       lanServer = lanServers.bridge;
       lanHttpsServer = lanServers.secureBridge;
       createMainWindow(started.port, activeLanPort);
+      scheduleUpdateChecks();
     } catch (err) {
       console.error('Error al iniciar TECNOVA:', err);
       app.quit();
