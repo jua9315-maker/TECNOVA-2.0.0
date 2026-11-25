@@ -1,13 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   FileSpreadsheet,
-  HardDrive,
   LayoutDashboard,
-  LogOut,
   Menu,
   Moon,
   Package,
-  PanelLeftClose,
   Receipt,
   Search,
   Settings,
@@ -132,7 +129,6 @@ function WorkspaceApp() {
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>('app');
   const [menuDrawerOpen, setMenuDrawerOpen] = useState(false);
-  const [dashboardSidebarHidden, setDashboardSidebarHidden] = useState(false);
   const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'light';
@@ -142,7 +138,6 @@ function WorkspaceApp() {
       return 'light';
     }
   });
-  const sidebarSearchInputRef = useRef<HTMLInputElement | null>(null);
   const drawerSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerContext, setScannerContext] =
@@ -718,10 +713,6 @@ function WorkspaceApp() {
       )
     : navItems;
 
-  const handleSearchContainerClick = () => {
-    sidebarSearchInputRef.current?.focus();
-  };
-
   const openScannerForContext = (ctx: ScannerContextMode) => {
     setScannerContext(ctx);
     setScannerStartMode('camera');
@@ -760,7 +751,6 @@ function WorkspaceApp() {
   const isSidebarDark = isGlobalDark || isHexColorDark(effectiveSidebarBg);
   const isHeaderDark = isGlobalDark || isHexColorDark(effectiveHeaderBg);
   const isPrimaryDark = isHexColorDark(appAppearance.primaryColor);
-  const showDesktopSidebar = activeTab === 'dashboard' && !dashboardSidebarHidden;
   const surfaceOpacity =
     appAppearance.surfaceOpacityPercent ??
     DEFAULT_APP_APPEARANCE_SETTINGS.surfaceOpacityPercent;
@@ -768,7 +758,7 @@ function WorkspaceApp() {
   return (
     <div
       id="app-shell"
-      className="min-h-screen relative flex flex-col lg:flex-row"
+      className="min-h-screen relative flex flex-col"
       style={{
         background: effectiveCanvasBg,
         backgroundAttachment: 'fixed',
@@ -778,285 +768,8 @@ function WorkspaceApp() {
         aria-hidden="true"
         className="fixed inset-0 z-0 pointer-events-none glass-atmosphere-orbs no-print"
       />
-      {/* Desktop Floating Compact Sidebar (hides completely on toggle; wraps tightly to items) */}
-      {showDesktopSidebar && (
-        <aside
-          className={`hidden lg:flex lg:flex-col lg:fixed lg:top-4 lg:left-4 lg:w-64 h-fit max-h-[calc(100vh-2rem)] z-20 rounded-2xl border backdrop-blur-2xl backdrop-saturate-150 overflow-hidden no-print ${
-            isSidebarDark
-              ? 'border-white/15 shadow-[0_18px_42px_-14px_rgba(2,6,23,0.55)]'
-              : 'border-white/75 shadow-[0_18px_42px_-14px_rgba(15,23,42,0.14)]'
-          }`}
-          style={{
-            background: applyBackgroundOpacity(
-              effectiveSidebarBg,
-              isGlobalDark ? Math.max(72, surfaceOpacity) : surfaceOpacity
-            ),
-          }}
-        >
-        <div
-          className={`h-14 px-4 flex items-center justify-between gap-2 border-b shrink-0 ${
-            isSidebarDark ? 'border-white/10' : 'border-slate-200/70'
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            {appAppearance.showLogoInSidebar && appAppearance.logoDataUrl && (
-              <img
-                src={appAppearance.logoDataUrl}
-                alt={appAppearance.appName}
-                className="h-6 w-auto object-contain shrink-0"
-              />
-            )}
-            <span
-              className={`text-sm font-bold tracking-tight truncate ${
-                isSidebarDark ? 'text-white' : 'text-slate-900'
-              }`}
-            >
-              {appAppearance.appName || 'TECNOVA'}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span
-              className={`inline-flex items-center gap-1 text-[10px] font-medium ${
-                isSidebarDark ? 'text-emerald-400' : 'text-emerald-700'
-              }`}
-              title="Base de datos local en tu equipo"
-            >
-              <HardDrive className="w-3.5 h-3.5" />
-              Local
-            </span>
-            <button
-              type="button"
-              onClick={() => setDashboardSidebarHidden(true)}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                isSidebarDark
-                  ? 'text-slate-300 hover:text-white hover:bg-white/10'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/70'
-              }`}
-              title="Ocultar menú lateral"
-              aria-label="Ocultar menú lateral"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
 
-        {/* Compact menu search bar */}
-        <div className="px-2.5 pt-2.5 pb-1 shrink-0">
-          <div
-            onClick={handleSearchContainerClick}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors cursor-text ${
-              isSidebarDark
-                ? 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10'
-                : 'bg-white/55 border-white/75 text-slate-700 hover:bg-white/75'
-            }`}
-          >
-            <Search className="w-3.5 h-3.5 shrink-0 opacity-70" />
-            <input
-              ref={sidebarSearchInputRef}
-              type="text"
-              value={menuSearchQuery}
-              onChange={(e) => setMenuSearchQuery(e.target.value)}
-              placeholder="Buscar módulo..."
-              className={`w-full bg-transparent text-xs focus:outline-none ${
-                isSidebarDark
-                  ? 'text-white placeholder:text-slate-400'
-                  : 'text-slate-900 placeholder:text-slate-500'
-              }`}
-              aria-label="Buscar en el menú"
-            />
-            {menuSearchQuery && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuSearchQuery('');
-                }}
-                className="p-0.5 rounded hover:bg-black/10 shrink-0 cursor-pointer"
-                aria-label="Limpiar búsqueda"
-              >
-                <X className="w-3.5 h-3.5 opacity-70" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <nav
-          data-visual-scope="shell"
-          className="px-2.5 py-2 space-y-0.5 overflow-y-auto flex flex-col"
-        >
-          {filteredNavItems.length === 0 ? (
-            <div className="px-3 py-4 text-center space-y-1.5">
-              <p
-                className={`text-xs ${
-                  isSidebarDark ? 'text-slate-400' : 'text-slate-500'
-                }`}
-              >
-                Sin módulos para "{menuSearchQuery}"
-              </p>
-              <button
-                type="button"
-                onClick={() => setMenuSearchQuery('')}
-                className="text-[11px] font-medium text-blue-600 hover:underline cursor-pointer"
-              >
-                Mostrar todos
-              </button>
-            </div>
-          ) : (
-            filteredNavItems.map((item) => {
-              const Icon = item.icon;
-              const active = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  data-nav-tab={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setMenuDrawerOpen(false);
-                  }}
-                  style={
-                    active
-                      ? {
-                          background: applyBackgroundOpacity(
-                            appAppearance.primaryColor || '#0f172a',
-                            Math.max(75, surfaceOpacity)
-                          ),
-                          color: isPrimaryDark ? '#ffffff' : '#0f172a',
-                        }
-                      : undefined
-                  }
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl transition-colors whitespace-nowrap cursor-pointer ${
-                    active
-                      ? 'shadow-sm'
-                      : isSidebarDark
-                        ? 'text-slate-300 hover:bg-white/10 hover:text-white'
-                        : 'text-slate-700 hover:bg-white/60 hover:text-slate-900'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })
-          )}
-        </nav>
-
-        <div
-          className={`px-3 py-2.5 border-t space-y-2 shrink-0 ${
-            isSidebarDark ? 'border-white/10' : 'border-slate-200/70'
-          }`}
-        >
-          {(actualRole === 'admin' ||
-            (actualRole === 'developer' &&
-              developerSystem.showDevRoleSwitcher)) && (
-            <div
-              className={`grid grid-cols-2 gap-1 p-1 rounded-lg ${
-                isSidebarDark ? 'bg-white/10' : 'bg-slate-100'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveViewRole(actualRole);
-                }}
-                className={`py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
-                  activeViewRole === actualRole
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : isSidebarDark
-                      ? 'text-slate-300 hover:text-white'
-                      : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {actualRole === 'developer' ? 'Desarrollador' : 'Admin'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveViewRole('staff');
-                }}
-                className={`py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
-                  activeViewRole === 'staff'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : isSidebarDark
-                      ? 'text-slate-300 hover:text-white'
-                      : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Usuario
-              </button>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p
-                className={`text-xs font-semibold truncate ${
-                  isSidebarDark ? 'text-white' : 'text-slate-900'
-                }`}
-              >
-                {actorName}
-              </p>
-              <p
-                className={`text-[10px] truncate ${
-                  isSidebarDark ? 'text-slate-400' : 'text-slate-500'
-                }`}
-              >
-                @{profile?.username || 'usuario'} ·{' '}
-                {activeViewRole === 'developer'
-                  ? 'Desarrollador'
-                  : activeViewRole === 'admin'
-                    ? 'Administrador'
-                    : 'Usuario Operativo'}
-              </p>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() =>
-                  setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'))
-                }
-                className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                  isSidebarDark
-                    ? 'bg-white/5 border-white/15 text-amber-300 hover:bg-white/10'
-                    : 'bg-white/60 border-white/80 text-indigo-600 hover:bg-white/85'
-                }`}
-                title={
-                  themeMode === 'dark'
-                    ? 'Cambiar a modo claro'
-                    : 'Cambiar a modo oscuro'
-                }
-                aria-label={
-                  themeMode === 'dark'
-                    ? 'Cambiar a modo claro'
-                    : 'Cambiar a modo oscuro'
-                }
-              >
-                {themeMode === 'dark' ? (
-                  <Sun className="w-3.5 h-3.5" />
-                ) : (
-                  <Moon className="w-3.5 h-3.5" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => void signOut()}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  isSidebarDark
-                    ? 'text-slate-400 hover:text-red-400 hover:bg-white/10'
-                    : 'text-slate-500 hover:text-red-600 hover:bg-slate-100'
-                }`}
-                title="Cerrar sesión"
-                aria-label="Cerrar sesión"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
-      )}
-
-      {/* Compact Floating Slide-over Navigation Drawer (mobile + desktop when sidebar is hidden) */}
+      {/* Unified Floating Navigation Menu (all views) */}
       {menuDrawerOpen && (
         <div
           className="fixed inset-0 z-50 flex items-start p-3 sm:p-4 bg-slate-950/45 backdrop-blur-xs no-print"
@@ -1147,7 +860,7 @@ function WorkspaceApp() {
             </div>
 
             <nav
-              data-visual-scope={!showDesktopSidebar ? 'shell' : undefined}
+              data-visual-scope="shell"
               className="p-2.5 space-y-0.5 overflow-y-auto flex flex-col"
             >
               {filteredNavItems.length === 0 ? (
@@ -1175,7 +888,7 @@ function WorkspaceApp() {
                     <button
                       key={item.id}
                       type="button"
-                      data-nav-tab={!showDesktopSidebar ? item.id : undefined}
+                      data-nav-tab={item.id}
                       onClick={() => {
                         setActiveTab(item.id);
                         setMenuDrawerOpen(false);
@@ -1311,11 +1024,7 @@ function WorkspaceApp() {
       )}
 
       {/* Main Content Area */}
-      <div
-        className={`relative z-10 flex-1 flex flex-col min-w-0 transition-[padding] duration-200 ${
-          showDesktopSidebar ? 'lg:pl-[17rem]' : ''
-        }`}
-      >
+      <div className="relative z-10 flex-1 flex flex-col min-w-0">
         {/* Top Header */}
         <header
           className={`h-16 border-b px-4 sm:px-8 flex items-center justify-between gap-4 sticky top-0 z-30 backdrop-blur-2xl backdrop-saturate-150 no-print ${
@@ -1333,21 +1042,8 @@ function WorkspaceApp() {
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => {
-                if (
-                  typeof window !== 'undefined' &&
-                  window.innerWidth >= 1024 &&
-                  activeTab === 'dashboard' &&
-                  dashboardSidebarHidden
-                ) {
-                  setDashboardSidebarHidden(false);
-                } else {
-                  setMenuDrawerOpen(true);
-                }
-              }}
-              className={`${
-                showDesktopSidebar ? 'lg:hidden' : 'inline-flex'
-              } items-center gap-2 px-2.5 py-1.5 -ml-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+              onClick={() => setMenuDrawerOpen(true)}
+              className={`inline-flex items-center gap-2 px-2.5 py-1.5 -ml-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
                 isHeaderDark
                   ? 'border-white/15 bg-white/5 text-slate-200 hover:text-white hover:bg-white/10'
                   : 'border-slate-200 bg-slate-50 text-slate-700 hover:text-slate-900 hover:bg-slate-100'
@@ -1356,9 +1052,7 @@ function WorkspaceApp() {
               title="Abrir menú de módulos"
             >
               <Menu className="w-4 h-4" />
-              <span className={showDesktopSidebar ? 'hidden' : 'hidden sm:inline'}>
-                Menú
-              </span>
+              <span className="hidden sm:inline">Menú</span>
             </button>
             <div className="flex items-center gap-2 text-xs sm:text-sm truncate">
               <span
@@ -1405,11 +1099,7 @@ function WorkspaceApp() {
         </header>
 
         {/* Viewport Container */}
-        <main
-          className={`flex-1 p-4 sm:p-8 w-full mx-auto ${
-            showDesktopSidebar ? 'max-w-[1440px]' : 'max-w-[1600px]'
-          }`}
-        >
+        <main className="flex-1 p-4 sm:p-8 w-full mx-auto max-w-[1600px]">
           {dataLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((n) => (
